@@ -1,0 +1,7 @@
+- post_auth-sign-up
+- post_auth-verify-email
+- post_auth-resend-verification
+- post_auth-sign-in
+- post_auth-sign-out
+- get_auth-me
+- patch_auth-me

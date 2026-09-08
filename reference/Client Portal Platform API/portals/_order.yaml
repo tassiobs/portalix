@@ -1,0 +1,5 @@
+- get_portals
+- post_portals
+- get_portals-portalid
+- patch_portals-portalid
+- delete_portals-portalid

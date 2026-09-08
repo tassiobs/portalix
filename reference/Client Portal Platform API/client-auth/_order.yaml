@@ -1,0 +1,7 @@
+- post_portals-portalid-client-auth-sign-up
+- post_portals-portalid-client-auth-sign-in
+- post_portals-portalid-client-auth-magic-link-request
+- post_portals-portalid-client-auth-magic-link-verify
+- post_portals-portalid-client-auth-sign-out
+- get_portals-portalid-client-auth-me
+- patch_portals-portalid-client-auth-me

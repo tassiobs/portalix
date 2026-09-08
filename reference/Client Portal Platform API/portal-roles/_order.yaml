@@ -1,0 +1,6 @@
+- get_portals-portalid-roles
+- post_portals-portalid-roles
+- get_portals-portalid-roles-roleid
+- patch_portals-portalid-roles-roleid
+- delete_portals-portalid-roles-roleid
+- get_portals-portalid-permissions

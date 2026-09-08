@@ -1,0 +1,17 @@
+- auth
+- organizations
+- portals
+- org-users
+- org-roles
+- portal-users
+- portal-roles
+- portal-settings
+- departments
+- request-types
+- workflows
+- notification-settings
+- requests
+- request-tasks
+- client-auth
+- client-requests
+- file-uploads

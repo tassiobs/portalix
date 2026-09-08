@@ -1,0 +1,9 @@
+- get_portals-portalid-requests
+- get_portals-portalid-requests-requestid
+- patch_portals-portalid-requests-requestid
+- post_portals-portalid-requests-requestid-cancel
+- get_portals-portalid-requests-requestid-follow-ups
+- post_portals-portalid-requests-requestid-follow-ups
+- post_portals-portalid-requests-requestid-follow-ups-followupid-attachments
+- post_portals-portalid-requests-requestid-attachments
+- get_portals-portalid-requests-requestid-receipt

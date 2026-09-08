@@ -1,0 +1,5 @@
+- get_portals-portalid-departments
+- post_portals-portalid-departments
+- get_portals-portalid-departments-departmentid
+- patch_portals-portalid-departments-departmentid
+- delete_portals-portalid-departments-departmentid
