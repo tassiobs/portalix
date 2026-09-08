@@ -1,0 +1,3557 @@
+openapi: 3.0.3
+info:
+  title: Client Portal Platform API
+  version: 2.0.0
+  description: |
+    API for the Client Portal Platform. Covers three access contexts:
+    - **Organization management**: org members manage portals and internal users
+    - **Portal administration**: internal users manage request types, workflows, and process requests
+    - **Client portal**: citizens self-register on a specific portal and submit requests
+
+    **Authentication**: All endpoints not marked `security: []` require a Bearer JWT.
+    Any authenticated endpoint can return `401` if the token is missing or invalid,
+    even when not explicitly listed in that operation's responses.
+
+    **Pagination**: Collections that may grow unboundedly (users, requests) return a
+    paginated envelope `{ data: [], pagination: {} }`. Small, naturally bounded
+    collections (roles, departments, permissions, request types, workflow tasks) return
+    bare arrays. This is intentional and consistent.
+
+    **Spec vs URL version**: `info.version` (2.0.0) tracks the document revision.
+    The URL prefix `/api/v1` is the API routing version — these two numbers are
+    independent and can diverge as the spec evolves.
+
+servers:
+  - url: /api/v1
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+    description: Organization member authentication and profile
+  - name: Organizations
+    description: Organization profile
+  - name: Portals
+    description: Portal lifecycle — create, configure, soft-delete
+  - name: Org Users
+    description: Internal user management at organization level
+  - name: Org Roles
+    description: RBAC role management at organization level
+  - name: Portal Users
+    description: Internal user management within a portal
+  - name: Portal Roles
+    description: RBAC role management within a portal
+  - name: Portal Settings
+    description: Portal-level configuration
+  - name: Departments
+    description: Department management within a portal
+  - name: Request Types
+    description: Request type configuration within a portal
+  - name: Workflows
+    description: Workflow definitions attached to request types
+  - name: Notification Settings
+    description: Email notification configuration per request type
+  - name: Requests
+    description: Request lifecycle — internal user view
+  - name: Request Tasks
+    description: Task management within a request
+  - name: Client Auth
+    description: Citizen authentication and profile on a specific portal
+  - name: Client Requests
+    description: Request lifecycle — citizen view
+  - name: File Uploads
+    description: File staging for form submissions with file_upload fields
+
+# ─────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────
+paths:
+
+  # ── Auth (Org Members) ────────────────────
+  /auth/sign-up:
+    post:
+      tags: [Auth]
+      operationId: signUp
+      summary: Sign up and create a new organization
+      description: |
+        Creates a new organization and registers the caller as its Org Super Admin.
+        A verification email is sent to the provided address.
+        The account cannot be used to sign in until the email is verified.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                name:
+                  type: string
+                  description: Full name (optional at sign-up)
+      responses:
+        '201':
+          description: Account created; verification email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignUpResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      operationId: verifyEmail
+      summary: Verify email address
+      description: |
+        Exchanges the token from the verification email for a confirmed account.
+        After successful verification the user is authenticated and receives a JWT.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Email verified; account active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Token invalid or expired
+
+  /auth/resend-verification:
+    post:
+      tags: [Auth]
+      operationId: resendVerification
+      summary: Resend verification email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '204':
+          description: Verification email resent (same response whether the email exists or not)
+
+  /auth/sign-in:
+    post:
+      tags: [Auth]
+      operationId: signIn
+      summary: Sign in as an org member
+      description: |
+        Password-based sign-in for internal org members.
+        Returns 403 if the account exists but email is not yet verified.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Email not yet verified
+
+  /auth/sign-out:
+    post:
+      tags: [Auth]
+      operationId: signOut
+      summary: Sign out (invalidate token)
+      responses:
+        '204':
+          description: Signed out
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      summary: Get current org member profile
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [Auth]
+      operationId: updateMe
+      summary: Update own profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUser'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ── Organization ──────────────────────────
+  /org:
+    get:
+      tags: [Organizations]
+      operationId: getOrg
+      summary: Get current organization
+      responses:
+        '200':
+          description: Organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+    patch:
+      tags: [Organizations]
+      operationId: updateOrg
+      x-required-permissions: [org.users.manage, org.portals.manage]
+      summary: Update organization
+      description: Requires org.users.manage or org.portals.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationUpdate'
+      responses:
+        '200':
+          description: Updated organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ── Portals ───────────────────────────────
+  /portals:
+    get:
+      tags: [Portals]
+      operationId: listPortals
+      x-required-permissions: [org.portals.manage]
+      summary: List portals in the organization
+      description: Requires org.portals.manage permission.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, archived]
+      responses:
+        '200':
+          description: List of portals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Portal'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Portals]
+      operationId: createPortal
+      x-required-permissions: [org.portals.manage]
+      summary: Create a portal
+      description: Requires org.portals.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortalInput'
+      responses:
+        '201':
+          description: Portal created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Portal'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /portals/{portalId}:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Portals]
+      operationId: getPortal
+      x-required-permissions: [org.portals.manage]
+      summary: Get a portal
+      description: Requires org.portals.manage permission.
+      responses:
+        '200':
+          description: Portal detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Portal'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Portals]
+      operationId: updatePortal
+      x-required-permissions: [org.portals.manage]
+      summary: Update a portal
+      description: Requires org.portals.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortalUpdate'
+      responses:
+        '200':
+          description: Updated portal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Portal'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [Portals]
+      operationId: archivePortal
+      x-required-permissions: [org.portals.manage]
+      summary: Archive a portal (soft delete)
+      description: |
+        Soft-deletes the portal. All data (requests, request types, users) is
+        preserved but the portal becomes inaccessible.
+        Requires org.portals.manage permission.
+      responses:
+        '204':
+          description: Portal archived
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Org Users ─────────────────────────────
+  /org/users:
+    get:
+      tags: [Org Users]
+      operationId: listOrgUsers
+      x-required-permissions: [org.users.manage]
+      summary: List org users
+      description: Requires org.users.manage permission.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Paginated list of org users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUserPage'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Org Users]
+      operationId: createOrgUser
+      x-required-permissions: [org.users.manage]
+      summary: Add an internal org user
+      description: |
+        Creates an internal user account and sends an invitation email.
+        Org users can only be added internally — no self-registration at org level.
+        Requires org.users.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgUserInput'
+      responses:
+        '201':
+          description: User created and invitation sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUser'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /org/users/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      tags: [Org Users]
+      operationId: getOrgUser
+      x-required-permissions: [org.users.manage]
+      summary: Get an org user
+      description: Requires org.users.manage permission.
+      responses:
+        '200':
+          description: Org user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUser'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Org Users]
+      operationId: updateOrgUser
+      x-required-permissions: [org.users.manage]
+      summary: Update an org user
+      description: Requires org.users.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgUserUpdate'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUser'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [Org Users]
+      operationId: deactivateOrgUser
+      x-required-permissions: [org.users.manage]
+      summary: Deactivate an org user
+      description: |
+        Soft-deletes by setting status = inactive. Historical data is preserved.
+        Requires org.users.manage permission.
+      responses:
+        '204':
+          description: User deactivated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /org/users/{userId}/roles:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      tags: [Org Users]
+      operationId: listOrgUserRoles
+      x-required-permissions: [org.users.manage]
+      summary: List org roles assigned to a user
+      description: Requires org.users.manage permission.
+      responses:
+        '200':
+          description: Assigned org roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Org Users]
+      operationId: assignOrgRole
+      x-required-permissions: [org.users.manage]
+      summary: Assign an org role to a user
+      description: Requires org.users.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roleId]
+              properties:
+                roleId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Role assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgUser'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /org/users/{userId}/roles/{roleId}:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+      - $ref: '#/components/parameters/roleId'
+    delete:
+      tags: [Org Users]
+      operationId: removeOrgRole
+      x-required-permissions: [org.users.manage]
+      summary: Remove an org role from a user
+      description: Requires org.users.manage permission.
+      responses:
+        '204':
+          description: Role removed
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Org Roles ─────────────────────────────
+  /org/roles:
+    get:
+      tags: [Org Roles]
+      operationId: listOrgRoles
+      summary: List org-level roles
+      responses:
+        '200':
+          description: List of org roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+    post:
+      tags: [Org Roles]
+      operationId: createOrgRole
+      x-required-permissions: [org.users.manage]
+      summary: Create an org-level role
+      description: Requires org.users.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleInput'
+      responses:
+        '201':
+          description: Role created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /org/roles/{roleId}:
+    parameters:
+      - $ref: '#/components/parameters/roleId'
+    get:
+      tags: [Org Roles]
+      operationId: getOrgRole
+      summary: Get an org role
+      responses:
+        '200':
+          description: Role detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Org Roles]
+      operationId: updateOrgRole
+      x-required-permissions: [org.users.manage]
+      summary: Update an org role
+      description: Requires org.users.manage permission. System-seeded roles cannot be deleted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleUpdate'
+      responses:
+        '200':
+          description: Updated role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [Org Roles]
+      operationId: deleteOrgRole
+      x-required-permissions: [org.users.manage]
+      summary: Delete an org role
+      description: |
+        Requires org.users.manage permission.
+        System-seeded default roles cannot be deleted.
+        Returns 409 if the role is currently assigned to any user.
+      responses:
+        '204':
+          description: Role deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /org/permissions:
+    get:
+      tags: [Org Roles]
+      operationId: listOrgPermissions
+      summary: List available org-level permissions
+      description: Returns the fixed set of permissions assignable to org-level roles.
+      responses:
+        '200':
+          description: List of org permissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionDefinition'
+
+  # ── Portal Users ──────────────────────────
+  /portals/{portalId}/users:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Portal Users]
+      operationId: listPortalUsers
+      x-required-permissions: [portal.users.manage]
+      summary: List users in a portal
+      description: Requires portal.users.manage permission.
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Paginated list of portal users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortalUserPage'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Portal Users]
+      operationId: addPortalUser
+      x-required-permissions: [portal.users.manage]
+      summary: Add an org user to a portal
+      description: |
+        Grants an existing org user access to this portal and optionally assigns portal roles.
+        The user must already be an org member.
+        Requires portal.users.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortalUserInput'
+      responses:
+        '201':
+          description: User added to portal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortalUser'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /portals/{portalId}/users/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/userId'
+    get:
+      tags: [Portal Users]
+      operationId: getPortalUser
+      x-required-permissions: [portal.users.manage]
+      summary: Get a portal user
+      description: Requires portal.users.manage permission.
+      responses:
+        '200':
+          description: Portal user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortalUser'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Portal Users]
+      operationId: removePortalUser
+      x-required-permissions: [portal.users.manage]
+      summary: Remove a user from a portal
+      description: |
+        Removes portal access. Historical data (assigned tasks, follow-ups) is preserved.
+        Requires portal.users.manage permission.
+      responses:
+        '204':
+          description: User removed from portal
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /portals/{portalId}/users/{userId}/roles:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/userId'
+    get:
+      tags: [Portal Users]
+      operationId: listPortalUserRoles
+      x-required-permissions: [portal.users.manage]
+      summary: List portal role assignments for a user
+      description: Requires portal.users.manage permission.
+      responses:
+        '200':
+          description: Role assignments with their ABAC scope constraints
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleAssignment'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Portal Users]
+      operationId: assignPortalRole
+      x-required-permissions: [portal.users.manage]
+      summary: Assign a portal role to a user
+      description: |
+        Assigns a role to the user with optional ABAC scope constraints.
+        Scope constraints are platform-defined; orgs configure values only.
+        Requires portal.users.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleAssignmentInput'
+      responses:
+        '201':
+          description: Role assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortalUser'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /portals/{portalId}/users/{userId}/roles/{roleId}:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/userId'
+      - $ref: '#/components/parameters/roleId'
+    delete:
+      tags: [Portal Users]
+      operationId: removePortalRole
+      x-required-permissions: [portal.users.manage]
+      summary: Remove a portal role from a user
+      description: Requires portal.users.manage permission.
+      responses:
+        '204':
+          description: Role removed
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Portal Roles ──────────────────────────
+  /portals/{portalId}/roles:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Portal Roles]
+      operationId: listPortalRoles
+      summary: List portal-level roles
+      responses:
+        '200':
+          description: List of portal roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Portal Roles]
+      operationId: createPortalRole
+      x-required-permissions: [portal.users.manage]
+      summary: Create a portal-level role
+      description: Requires portal.users.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleInput'
+      responses:
+        '201':
+          description: Role created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /portals/{portalId}/roles/{roleId}:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/roleId'
+    get:
+      tags: [Portal Roles]
+      operationId: getPortalRole
+      summary: Get a portal role
+      responses:
+        '200':
+          description: Role detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Portal Roles]
+      operationId: updatePortalRole
+      x-required-permissions: [portal.users.manage]
+      summary: Update a portal role
+      description: Requires portal.users.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleUpdate'
+      responses:
+        '200':
+          description: Updated role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      tags: [Portal Roles]
+      operationId: deletePortalRole
+      x-required-permissions: [portal.users.manage]
+      summary: Delete a portal role
+      description: |
+        Requires portal.users.manage permission.
+        System-seeded default roles cannot be deleted.
+        Returns 409 if currently assigned to any user.
+      responses:
+        '204':
+          description: Role deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /portals/{portalId}/permissions:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Portal Roles]
+      operationId: listPortalPermissions
+      summary: List available portal-level permissions
+      description: Returns the fixed set of permissions assignable to portal-level roles.
+      responses:
+        '200':
+          description: List of portal permissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionDefinition'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Portal Settings ───────────────────────
+  /portals/{portalId}/settings:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Portal Settings]
+      operationId: getPortalSettings
+      summary: Get portal settings
+      description: Accessible to any authenticated portal user.
+      responses:
+        '200':
+          description: Portal settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortalSettings'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Portal Settings]
+      operationId: updatePortalSettings
+      x-required-permissions: [portal.settings.manage]
+      summary: Update portal settings
+      description: Requires portal.settings.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortalSettingsUpdate'
+      responses:
+        '200':
+          description: Updated portal settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortalSettings'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ── Departments ───────────────────────────
+  /portals/{portalId}/departments:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Departments]
+      operationId: listDepartments
+      summary: List departments in a portal
+      description: |
+        Accessible to any authenticated portal user.
+        Results are silently filtered by the caller's ABAC scope constraints:
+        - `departmentIds` scope: only the departments in that scope are returned
+      responses:
+        '200':
+          description: List of departments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Department'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Departments]
+      operationId: createDepartment
+      x-required-permissions: [portal.departments.manage]
+      summary: Create a department
+      description: Requires portal.departments.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentInput'
+      responses:
+        '201':
+          description: Department created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /portals/{portalId}/departments/{departmentId}:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/departmentId'
+    get:
+      tags: [Departments]
+      operationId: getDepartment
+      summary: Get a department
+      responses:
+        '200':
+          description: Department
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Departments]
+      operationId: updateDepartment
+      x-required-permissions: [portal.departments.manage]
+      summary: Update a department
+      description: Requires portal.departments.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentUpdate'
+      responses:
+        '200':
+          description: Updated department
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Departments]
+      operationId: deleteDepartment
+      x-required-permissions: [portal.departments.manage]
+      summary: Delete a department
+      description: Requires portal.departments.manage permission.
+      responses:
+        '204':
+          description: Deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ── Request Types ─────────────────────────
+  /portals/{portalId}/request-types:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Request Types]
+      operationId: listRequestTypes
+      x-required-permissions: [portal.request_types.view, portal.request_types.manage]
+      summary: List request types in a portal
+      description: |
+        Requires portal.request_types.view or portal.request_types.manage permission.
+        Returns all statuses; the client portal endpoint filters to active only.
+        Results are silently filtered by the caller's ABAC scope constraints:
+        - `departmentIds` scope: only request types belonging to those departments
+      parameters:
+        - name: departmentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/RequestTypeStatus'
+      responses:
+        '200':
+          description: List of request types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RequestTypeSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Request Types]
+      operationId: createRequestType
+      x-required-permissions: [portal.request_types.manage]
+      summary: Create a request type
+      description: Requires portal.request_types.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestTypeInput'
+      responses:
+        '201':
+          description: Request type created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestType'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /portals/{portalId}/request-types/{requestTypeId}:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestTypeId'
+    get:
+      tags: [Request Types]
+      operationId: getRequestType
+      x-required-permissions: [portal.request_types.view, portal.request_types.manage]
+      summary: Get a request type with its fields
+      description: Requires portal.request_types.view or portal.request_types.manage permission.
+      responses:
+        '200':
+          description: Request type detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestType'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Request Types]
+      operationId: updateRequestType
+      x-required-permissions: [portal.request_types.manage]
+      summary: Update a request type
+      description: Requires portal.request_types.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestTypeUpdate'
+      responses:
+        '200':
+          description: Updated request type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestType'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Request Types]
+      operationId: archiveRequestType
+      x-required-permissions: [portal.request_types.manage]
+      summary: Archive a request type
+      description: |
+        Soft-deletes the request type. Existing requests are preserved.
+        Requires portal.request_types.manage permission.
+      responses:
+        '204':
+          description: Archived
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Workflows ─────────────────────────────
+  /portals/{portalId}/request-types/{requestTypeId}/workflow:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestTypeId'
+    get:
+      tags: [Workflows]
+      operationId: getWorkflow
+      x-required-permissions: [portal.workflows.view, portal.workflows.manage]
+      summary: Get the workflow for a request type
+      description: Requires portal.workflows.view or portal.workflows.manage permission.
+      responses:
+        '200':
+          description: Workflow definition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workflow'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Workflows]
+      operationId: upsertWorkflow
+      x-required-permissions: [portal.workflows.manage]
+      summary: Create or replace the workflow for a request type
+      description: |
+        Replaces the entire workflow definition. Tasks use a client-provided `key`
+        so that `dependsOn` references can be expressed before server IDs are assigned.
+        Requires portal.workflows.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowInput'
+      responses:
+        '200':
+          description: Saved workflow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workflow'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ── Notification Settings ─────────────────
+  /portals/{portalId}/request-types/{requestTypeId}/notification-settings:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestTypeId'
+    get:
+      tags: [Notification Settings]
+      operationId: getNotificationSettings
+      x-required-permissions: [portal.settings.manage]
+      summary: Get notification settings for a request type
+      description: Requires portal.settings.manage permission.
+      responses:
+        '200':
+          description: Notification settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Notification Settings]
+      operationId: upsertNotificationSettings
+      x-required-permissions: [portal.settings.manage]
+      summary: Create or replace notification settings for a request type
+      description: Requires portal.settings.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationSettingsInput'
+      responses:
+        '200':
+          description: Saved notification settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ── File Staging ──────────────────────────
+  /uploads/stage:
+    post:
+      tags: [File Uploads]
+      operationId: stageFile
+      summary: Stage a file before request submission
+      description: |
+        Uploads a file and returns a short-lived stagedFileId (TTL: 1 hour).
+        Use when filling out a request form with file_upload fields: upload each
+        document here first, then include the returned stagedFileId as the fieldValue
+        when submitting the request. The backend materializes staged files as proper
+        request attachments at creation time. Unused staged files are garbage-collected
+        after TTL expires.
+        Accepted types: image/jpeg, image/png, image/webp, application/pdf.
+      requestBody:
+        $ref: '#/components/requestBodies/FileUploadBody'
+      responses:
+        '201':
+          description: File staged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StagedFile'
+        '415':
+          description: Unsupported media type
+
+  # ── Requests (Internal) ───────────────────
+  /portals/{portalId}/requests:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Requests]
+      operationId: listRequests
+      x-required-permissions: [portal.requests.view, portal.requests.manage]
+      summary: List all requests in a portal
+      description: |
+        Requires portal.requests.view or portal.requests.manage permission.
+        Results are silently filtered by the caller's ABAC scope constraints:
+        - `departmentIds` scope: only requests whose request type belongs to those departments
+        - `onlyAssignedToSelf` scope: only requests assigned to the caller
+      parameters:
+        - name: requestTypeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/RequestStatus'
+        - name: departmentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: assignedToMe
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Paginated list of requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestPage'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /portals/{portalId}/requests/{requestId}:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+    get:
+      tags: [Requests]
+      operationId: getRequest
+      x-required-permissions: [portal.requests.view, portal.requests.manage]
+      summary: Get a request
+      description: Requires portal.requests.view or portal.requests.manage permission.
+      responses:
+        '200':
+          description: Request detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Requests]
+      operationId: updateRequest
+      x-required-permissions: [portal.requests.manage]
+      summary: Update a request (internal)
+      description: Requires portal.requests.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestAdminUpdate'
+      responses:
+        '200':
+          description: Updated request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /portals/{portalId}/requests/{requestId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+    post:
+      tags: [Requests]
+      operationId: cancelRequest
+      x-required-permissions: [portal.requests.manage]
+      summary: Cancel a request (internal user)
+      description: Requires portal.requests.manage permission.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Request cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /portals/{portalId}/requests/{requestId}/follow-ups:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+    get:
+      tags: [Requests]
+      operationId: listFollowUps
+      x-required-permissions: [portal.requests.view, portal.requests.manage]
+      summary: List follow-up messages on a request (internal view)
+      description: Requires portal.requests.view or portal.requests.manage permission.
+      responses:
+        '200':
+          description: Full follow-up thread including internal-only messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FollowUp'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Requests]
+      operationId: createFollowUp
+      x-required-permissions: [portal.requests.manage]
+      summary: Add a follow-up message (internal user)
+      description: |
+        Creates a follow-up message on the request thread.
+        If the message includes file attachments, post the follow-up first to obtain
+        the followUpId, then upload each file via
+        POST /portals/{portalId}/requests/{requestId}/follow-ups/{followUpId}/attachments.
+        Requires portal.requests.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FollowUpInput'
+      responses:
+        '201':
+          description: Follow-up created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FollowUp'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /portals/{portalId}/requests/{requestId}/follow-ups/{followUpId}/attachments:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+      - $ref: '#/components/parameters/followUpId'
+    post:
+      tags: [Requests]
+      operationId: uploadFollowUpAttachment
+      x-required-permissions: [portal.requests.manage]
+      summary: Upload an attachment to a follow-up message (internal user)
+      description: |
+        Attaches a file to an existing follow-up. Follow-up attachments are kept
+        separate from request-level attachments and only appear in the thread.
+        Client sequencing: create the follow-up first, then upload files.
+        Attempting to upload before the follow-up exists will return 404.
+      requestBody:
+        $ref: '#/components/requestBodies/FileUploadBody'
+      responses:
+        '201':
+          description: Attachment uploaded and linked to the follow-up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '415':
+          description: Unsupported media type
+
+  /portals/{portalId}/requests/{requestId}/attachments:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+    post:
+      tags: [Requests]
+      operationId: uploadRequestAttachment
+      x-required-permissions: [portal.requests.manage]
+      summary: Upload an attachment to a request
+      description: Requires portal.requests.manage permission.
+      requestBody:
+        $ref: '#/components/requestBodies/FileUploadBody'
+      responses:
+        '201':
+          description: Attachment uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '415':
+          description: Unsupported media type
+
+  /portals/{portalId}/requests/{requestId}/receipt:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+    get:
+      tags: [Requests]
+      operationId: downloadReceipt
+      x-required-permissions: [portal.requests.view, portal.requests.manage]
+      summary: Download the submission receipt (PDF)
+      description: Requires portal.requests.view or portal.requests.manage permission.
+      responses:
+        '200':
+          description: PDF receipt
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Request Tasks ─────────────────────────
+  /portals/{portalId}/requests/{requestId}/tasks:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+    get:
+      tags: [Request Tasks]
+      operationId: listTasks
+      x-required-permissions: [portal.requests.view, portal.requests.manage]
+      summary: List task instances for a request
+      description: |
+        Requires portal.requests.view or portal.requests.manage permission.
+        Results are silently filtered by the caller's ABAC scope constraints:
+        - `onlyAssignedToSelf` scope: only task instances assigned to the caller
+      responses:
+        '200':
+          description: Task instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskInstance'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /portals/{portalId}/requests/{requestId}/tasks/{taskInstanceId}:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+      - $ref: '#/components/parameters/taskInstanceId'
+    get:
+      tags: [Request Tasks]
+      operationId: getTask
+      x-required-permissions: [portal.requests.view, portal.requests.manage]
+      summary: Get a task instance
+      description: Requires portal.requests.view or portal.requests.manage permission.
+      responses:
+        '200':
+          description: Task instance detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskInstance'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Request Tasks]
+      operationId: updateTask
+      x-required-permissions: [portal.requests.manage]
+      summary: Update a task instance (e.g. reassign)
+      description: Requires portal.requests.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskInstanceUpdate'
+      responses:
+        '200':
+          description: Updated task instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskInstance'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /portals/{portalId}/requests/{requestId}/tasks/{taskInstanceId}/complete:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+      - $ref: '#/components/parameters/taskInstanceId'
+    post:
+      tags: [Request Tasks]
+      operationId: completeTask
+      x-required-permissions: [portal.requests.manage]
+      summary: Mark a task instance as complete
+      description: |
+        Completing a task triggers evaluation of the workflow graph: tasks whose
+        dependencies are now fully satisfied are activated. If this is the last task,
+        the request moves to `completed`.
+
+        When `outcome` is `clarification_requested`, the workflow pauses and the request
+        moves to `pending_clarification` until the citizen responds via the client
+        follow-up endpoint with type `clarification_response`.
+
+        When `outcome` is `rejected`, the request moves to `rejected` and no further
+        tasks are activated. Requires portal.requests.manage permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome]
+              properties:
+                outcome:
+                  $ref: '#/components/schemas/TaskOutcome'
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Task completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskInstance'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ── Client Portal Auth ────────────────────
+  /portals/{portalId}/client/auth/sign-up:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    post:
+      tags: [Client Auth]
+      operationId: clientSignUp
+      summary: Citizen self-registration on a portal
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CitizenSignUpInput'
+      responses:
+        '201':
+          description: Account created and authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitizenAuthResponse'
+        '403':
+          description: Password registration is disabled for this portal
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /portals/{portalId}/client/auth/sign-in:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    post:
+      tags: [Client Auth]
+      operationId: clientSignIn
+      summary: Citizen sign-in on a portal
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitizenAuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /portals/{portalId}/client/auth/magic-link/request:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    post:
+      tags: [Client Auth]
+      operationId: clientRequestMagicLink
+      summary: Request a magic link for citizen sign-up or sign-in
+      description: Returns 403 if magic link authentication is disabled in portal settings.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, purpose]
+              properties:
+                email:
+                  type: string
+                  format: email
+                purpose:
+                  type: string
+                  enum: [sign_up, sign_in]
+                name:
+                  type: string
+                  description: Captured at sign-up; ignored when purpose is sign_in
+                phoneNumber:
+                  type: string
+                country:
+                  type: string
+                address:
+                  $ref: '#/components/schemas/AddressInput'
+      responses:
+        '204':
+          description: Magic link sent
+        '403':
+          description: Magic link authentication is disabled for this portal
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /portals/{portalId}/client/auth/magic-link/verify:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    post:
+      tags: [Client Auth]
+      operationId: clientVerifyMagicLink
+      summary: Verify a magic link token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Token valid; session opened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitizenAuthResponse'
+        '401':
+          description: Token invalid or expired
+
+  /portals/{portalId}/client/auth/sign-out:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    post:
+      tags: [Client Auth]
+      operationId: clientSignOut
+      summary: Citizen sign-out
+      responses:
+        '204':
+          description: Signed out
+
+  /portals/{portalId}/client/auth/me:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Client Auth]
+      operationId: clientGetMe
+      summary: Get current citizen profile
+      responses:
+        '200':
+          description: Citizen profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Citizen'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [Client Auth]
+      operationId: clientUpdateMe
+      summary: Update citizen profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CitizenProfileUpdate'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Citizen'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ── Client Requests ───────────────────────
+  /portals/{portalId}/client/request-types:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Client Requests]
+      operationId: clientListRequestTypes
+      summary: List active request types available to citizens
+      description: Returns only active (published) request types.
+      security: []
+      responses:
+        '200':
+          description: List of request types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RequestTypeSummary'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /portals/{portalId}/client/request-types/{requestTypeId}:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestTypeId'
+    get:
+      tags: [Client Requests]
+      operationId: clientGetRequestType
+      summary: Get a request type (citizen view)
+      description: Returns the request type with its fields for form rendering. Only active types accessible.
+      security: []
+      responses:
+        '200':
+          description: Request type detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestType'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /portals/{portalId}/client/requests:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Client Requests]
+      operationId: clientListRequests
+      summary: List the citizen's own requests
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/RequestStatus'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Paginated list of citizen's own requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestPage'
+    post:
+      tags: [Client Requests]
+      operationId: clientSubmitRequest
+      summary: Submit a new request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestInput'
+      responses:
+        '201':
+          description: Request submitted with status = open
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /portals/{portalId}/client/requests/{requestId}:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+    get:
+      tags: [Client Requests]
+      operationId: clientGetRequest
+      summary: Get a citizen's own request
+      responses:
+        '200':
+          description: Request detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Client Requests]
+      operationId: clientUpdateRequest
+      summary: Update a request (citizen)
+      description: Citizens may update name, notes, and fieldValues while the request is open.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestCitizenUpdate'
+      responses:
+        '200':
+          description: Updated request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /portals/{portalId}/client/requests/{requestId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+    post:
+      tags: [Client Requests]
+      operationId: clientCancelRequest
+      summary: Cancel a request (citizen)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Request cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /portals/{portalId}/client/requests/{requestId}/follow-ups:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+    get:
+      tags: [Client Requests]
+      operationId: clientListFollowUps
+      summary: List follow-up messages (citizen view)
+      description: Returns the shared thread; internal-only messages are excluded.
+      responses:
+        '200':
+          description: Follow-up thread
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FollowUp'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Client Requests]
+      operationId: clientCreateFollowUp
+      summary: Add a follow-up message (citizen)
+      description: |
+        Used for general messages and clarification responses (type: clarification_response).
+        If the message includes files, post the follow-up first to obtain the followUpId,
+        then upload via .../follow-ups/{followUpId}/attachments.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FollowUpInput'
+      responses:
+        '201':
+          description: Follow-up created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FollowUp'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /portals/{portalId}/client/requests/{requestId}/follow-ups/{followUpId}/attachments:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+      - $ref: '#/components/parameters/followUpId'
+    post:
+      tags: [Client Requests]
+      operationId: clientUploadFollowUpAttachment
+      summary: Upload an attachment to a citizen follow-up
+      description: |
+        Client sequencing: create the follow-up first, then upload files.
+        Attempting to upload before the follow-up exists will return 404.
+      requestBody:
+        $ref: '#/components/requestBodies/FileUploadBody'
+      responses:
+        '201':
+          description: Attachment uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '415':
+          description: Unsupported media type
+
+  /portals/{portalId}/client/requests/{requestId}/receipt:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/requestId'
+    get:
+      tags: [Client Requests]
+      operationId: clientDownloadReceipt
+      summary: Download submission receipt (PDF)
+      responses:
+        '200':
+          description: PDF receipt
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# ─────────────────────────────────────────────
+# COMPONENTS
+# ─────────────────────────────────────────────
+components:
+
+  requestBodies:
+    FileUploadBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [name, file]
+            properties:
+              name:
+                type: string
+                maxLength: 255
+                description: Consumer-provided label for this file
+              file:
+                type: string
+                format: binary
+          encoding:
+            file:
+              contentType: image/jpeg, image/png, image/webp, application/pdf
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    userId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    portalId:
+      name: portalId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    departmentId:
+      name: departmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    requestTypeId:
+      name: requestTypeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    requestId:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    taskInstanceId:
+      name: taskInstanceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    followUpId:
+      name: followUpId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    roleId:
+      name: roleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Caller does not have the required permission
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: Validation errors
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+    Conflict:
+      description: Conflict — the request cannot be completed due to the current state of the resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnexpectedError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+
+    # ── Organization ───────────────────────
+    Organization:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    OrganizationUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+
+    # ── Portal ─────────────────────────────
+    Portal:
+      type: object
+      required: [id, name, status, clientDomain, adminDomain, createdBy, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, archived]
+        clientDomain:
+          type: string
+          description: Auto-generated domain for the citizen-facing portal
+          example: "minha-prefeitura.portalu.io"
+        adminDomain:
+          type: string
+          description: Auto-generated domain for the internal admin portal
+          example: "admin.minha-prefeitura.portalu.io"
+        createdBy:
+          $ref: '#/components/schemas/UserSummary'
+        createdAt:
+          type: string
+          format: date-time
+
+    PortalInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+
+    PortalUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+
+    # ── Users ──────────────────────────────
+    UserSummary:
+      type: object
+      description: Lightweight user reference used in nested contexts
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+
+    OrgUser:
+      type: object
+      required: [id, email, emailVerified, status, orgRoles, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+        emailVerified:
+          type: boolean
+        status:
+          type: string
+          enum: [active, inactive]
+        orgRoles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+        createdAt:
+          type: string
+          format: date-time
+
+    OrgUserInput:
+      type: object
+      required: [email, name]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    OrgUserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+
+    OrgUserPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrgUser'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PortalUser:
+      type: object
+      required: [id, email, status, roleAssignments, addedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum: [active, inactive]
+        roleAssignments:
+          type: array
+          description: Portal role assignments, each with their ABAC scope constraints
+          items:
+            $ref: '#/components/schemas/RoleAssignment'
+        addedAt:
+          type: string
+          format: date-time
+
+    PortalUserInput:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: Must be an existing org user
+        roleIds:
+          type: array
+          description: Portal roles to assign immediately (optional)
+          items:
+            type: string
+            format: uuid
+
+    PortalUserPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortalUser'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        currentPassword:
+          type: string
+          format: password
+          description: Required when changing the password
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+
+    # ── Auth responses ─────────────────────
+    SignUpResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/OrgUser'
+        message:
+          type: string
+          example: "Verification email sent. Please check your inbox."
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Bearer JWT for subsequent requests
+        user:
+          $ref: '#/components/schemas/OrgUser'
+
+    # ── Citizens ───────────────────────────
+    Citizen:
+      type: object
+      required: [id, email, createdAt]
+      description: External user with access to a specific client portal; no RBAC role
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+        phoneNumber:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+          description: ISO 3166-1 alpha-2 country code
+        address:
+          allOf:
+            - $ref: '#/components/schemas/Address'
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CitizenSignUpInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        name:
+          type: string
+        phoneNumber:
+          type: string
+        country:
+          type: string
+        address:
+          $ref: '#/components/schemas/AddressInput'
+
+    CitizenProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phoneNumber:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        address:
+          $ref: '#/components/schemas/AddressInput'
+        currentPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+
+    CitizenAuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Bearer JWT scoped to this portal's client context
+        citizen:
+          $ref: '#/components/schemas/Citizen'
+
+    # ── RBAC ───────────────────────────────
+    RoleLevel:
+      type: string
+      enum: [org, portal]
+
+    Scope:
+      type: object
+      description: |
+        ABAC constraints applied to a portal-level role assignment.
+        Constraints are defined by the platform; orgs configure values, not rules.
+        All constraints are optional and composable. Omitting a constraint means
+        no restriction on that dimension.
+      properties:
+        departmentIds:
+          type: array
+          description: |
+            Restricts the assignment to resources belonging to these departments.
+            Applies to: request types, workflows, departments, requests.
+            Omit or set to null for access across all departments.
+          items:
+            type: string
+            format: uuid
+          nullable: true
+        onlyAssignedToSelf:
+          type: boolean
+          description: |
+            When true, restricts request and task access to records assigned to this user.
+            Applies to: requests, task instances.
+          default: false
+
+    RoleAssignment:
+      type: object
+      required: [id, role, assignedAt]
+      description: A role granted to a portal user, optionally scoped by ABAC constraints
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/Role'
+        scope:
+          allOf:
+            - $ref: '#/components/schemas/Scope'
+          nullable: true
+          description: Null means no scope constraints; the role applies to all resources
+        assignedAt:
+          type: string
+          format: date-time
+
+    RoleAssignmentInput:
+      type: object
+      required: [roleId]
+      properties:
+        roleId:
+          type: string
+          format: uuid
+        scope:
+          allOf:
+            - $ref: '#/components/schemas/Scope'
+          nullable: true
+          description: Omit or set to null to grant access without scope constraints
+
+    OrgPermission:
+      type: string
+      enum:
+        - org.users.manage
+        - org.portals.manage
+      description: |
+        - org.users.manage: add/update/deactivate org users; assign org roles
+        - org.portals.manage: create/update/archive portals
+
+    PortalPermission:
+      type: string
+      enum:
+        - portal.users.manage
+        - portal.settings.manage
+        - portal.request_types.view
+        - portal.request_types.manage
+        - portal.workflows.view
+        - portal.workflows.manage
+        - portal.departments.manage
+        - portal.requests.view
+        - portal.requests.manage
+      description: |
+        - portal.users.manage: add/remove portal users; assign portal roles
+        - portal.settings.manage: update portal settings and notification rules
+        - portal.request_types.view: read-only access to request types and fields
+        - portal.request_types.manage: create/update/archive request types
+        - portal.workflows.view: read-only access to workflow definitions
+        - portal.workflows.manage: create/replace workflow definitions
+        - portal.departments.manage: create/update/delete departments
+        - portal.requests.view: read-only access to all requests and tasks
+        - portal.requests.manage: process requests, complete tasks, add follow-ups
+
+    PermissionDefinition:
+      type: object
+      description: Metadata for a system permission used to build role configuration UIs
+      properties:
+        key:
+          type: string
+          example: "portal.requests.manage"
+        label:
+          type: string
+          example: "Manage Requests"
+        description:
+          type: string
+          example: "Process requests, complete tasks, and add follow-up messages"
+        level:
+          $ref: '#/components/schemas/RoleLevel'
+
+    Role:
+      type: object
+      required: [id, name, level, permissions, isDefault, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        level:
+          $ref: '#/components/schemas/RoleLevel'
+        permissions:
+          type: array
+          description: Permission keys assigned to this role
+          items:
+            type: string
+          example: ["portal.requests.view", "portal.requests.manage"]
+        isDefault:
+          type: boolean
+          description: True for system-seeded roles; these cannot be deleted
+        createdAt:
+          type: string
+          format: date-time
+
+    RoleInput:
+      type: object
+      required: [name, permissions]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        permissions:
+          type: array
+          description: Permission keys to assign; must all match the role's level
+          items:
+            type: string
+          example: ["portal.requests.view", "portal.requests.manage"]
+
+    RoleUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        permissions:
+          type: array
+          items:
+            type: string
+
+    # ── Portal Settings ────────────────────
+    PortalSettings:
+      type: object
+      properties:
+        magicLinkEnabled:
+          type: boolean
+          description: When true, citizens may sign up and sign in via magic link
+          default: false
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedBy:
+          allOf:
+            - $ref: '#/components/schemas/UserSummary'
+          nullable: true
+
+    PortalSettingsUpdate:
+      type: object
+      properties:
+        magicLinkEnabled:
+          type: boolean
+
+    # ── Common ─────────────────────────────
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        perPage:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    Address:
+      type: object
+      properties:
+        streetNumber:
+          type: string
+          example: "742"
+        additionalInfo:
+          type: string
+          nullable: true
+        city:
+          type: string
+          example: "São Paulo"
+        state:
+          type: string
+          example: "SP"
+        postcode:
+          type: string
+          example: "01310-100"
+        country:
+          type: string
+          example: "BR"
+
+    AddressInput:
+      type: object
+      properties:
+        streetNumber:
+          type: string
+        additionalInfo:
+          type: string
+          nullable: true
+        city:
+          type: string
+        state:
+          type: string
+        postcode:
+          type: string
+        country:
+          type: string
+
+    ValidationError:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    ErrorResponse:
+      type: object
+      required: [message, code]
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+          description: Machine-readable error code
+        details:
+          type: object
+          additionalProperties: true
+          description: Optional structured context (field-level info, conflict reason, etc.)
+          nullable: true
+
+    FieldOption:
+      type: object
+      required: [label, value]
+      properties:
+        label:
+          type: string
+          maxLength: 255
+        value:
+          type: string
+          maxLength: 100
+
+    # ── Department ─────────────────────────
+    Department:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    DepartmentInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+
+    DepartmentUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+
+    # ── Field definitions ──────────────────
+    FieldType:
+      type: string
+      enum: [text, textarea, single_dropdown, multi_select, file_upload]
+      description: |
+        - text: single-line text input
+        - textarea: multi-line text input
+        - single_dropdown: select exactly one option
+        - multi_select: select one or more options
+        - file_upload: named document slot; citizen uploads a file and the returned
+          stagedFileId is submitted as the field value
+
+    FieldDefinition:
+      type: object
+      required: [name, type]
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          example: "Planta Baixa"
+        type:
+          $ref: '#/components/schemas/FieldType'
+        required:
+          type: boolean
+          default: false
+        order:
+          type: integer
+        options:
+          type: array
+          description: Required when type is single_dropdown or multi_select; not used for file_upload
+          items:
+            $ref: '#/components/schemas/FieldOption'
+
+    FieldValue:
+      type: object
+      required: [fieldId, value]
+      properties:
+        fieldId:
+          type: string
+          format: uuid
+        value:
+          description: |
+            String for text/textarea; string for single_dropdown (option value);
+            array of strings for multi_select;
+            stagedFileId string for file_upload (obtained from POST /uploads/stage before submission).
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+
+    FieldDefinitionInput:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/FieldType'
+        required:
+          type: boolean
+          default: false
+        order:
+          type: integer
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldOption'
+
+    # ── SLA ────────────────────────────────
+    SLA:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        durationHours:
+          type: integer
+          example: 48
+
+    SLAInput:
+      type: object
+      required: [durationHours]
+      properties:
+        durationHours:
+          type: integer
+          minimum: 1
+          example: 48
+
+    # ── Request Type ───────────────────────
+    RequestTypeStatus:
+      type: string
+      enum: [draft, active, archived]
+
+    RequestTypeSummary:
+      type: object
+      required: [id, name, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/RequestTypeStatus'
+        department:
+          $ref: '#/components/schemas/Department'
+        sla:
+          $ref: '#/components/schemas/SLA'
+        createdAt:
+          type: string
+          format: date-time
+
+    RequestType:
+      allOf:
+        - $ref: '#/components/schemas/RequestTypeSummary'
+        - type: object
+          properties:
+            fields:
+              type: array
+              items:
+                $ref: '#/components/schemas/FieldDefinition'
+            createdBy:
+              $ref: '#/components/schemas/UserSummary'
+            workflow:
+              $ref: '#/components/schemas/Workflow'
+
+    RequestTypeInput:
+      type: object
+      required: [name, departmentId]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/RequestTypeStatus'
+        departmentId:
+          type: string
+          format: uuid
+        sla:
+          $ref: '#/components/schemas/SLAInput'
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDefinitionInput'
+
+    RequestTypeUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/RequestTypeStatus'
+        departmentId:
+          type: string
+          format: uuid
+        sla:
+          $ref: '#/components/schemas/SLAInput'
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDefinitionInput'
+
+    # ── Workflow ───────────────────────────
+    Workflow:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestTypeId:
+          type: string
+          format: uuid
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskDefinition'
+        updatedAt:
+          type: string
+          format: date-time
+
+    WorkflowInput:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskDefinitionInput'
+
+    TaskDefinition:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        key:
+          type: string
+          example: "legal-review"
+        name:
+          type: string
+          example: "Legal review"
+        departmentId:
+          type: string
+          format: uuid
+          nullable: true
+        assigneeRole:
+          type: string
+          nullable: true
+        assigneeUserId:
+          type: string
+          format: uuid
+          nullable: true
+        deadlineOffsetHours:
+          type: integer
+          nullable: true
+          example: 24
+        dependsOn:
+          type: array
+          items:
+            type: string
+          example: ["initial-review"]
+
+    TaskDefinitionInput:
+      type: object
+      required: [key, name]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        departmentId:
+          type: string
+          format: uuid
+          nullable: true
+        assigneeRole:
+          type: string
+          nullable: true
+        assigneeUserId:
+          type: string
+          format: uuid
+          nullable: true
+        deadlineOffsetHours:
+          type: integer
+          nullable: true
+        dependsOn:
+          type: array
+          items:
+            type: string
+          default: []
+
+    # ── Request ────────────────────────────
+    RequestStatus:
+      type: string
+      enum: [open, in_progress, pending_clarification, completed, rejected, cancelled]
+      description: |
+        - open: submitted, not yet acted on
+        - in_progress: one or more tasks are active
+        - pending_clarification: workflow paused; awaiting citizen response
+        - completed: all workflow tasks approved and finished
+        - rejected: rejected by a task assignee
+        - cancelled: cancelled by the citizen or internal user
+
+    Request:
+      type: object
+      required: [id, protocolNumber, requestType, status, name, fieldValues, attachments, requester, activeTasks, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        protocolNumber:
+          type: string
+          example: "LIC-2026-000123"
+        requestType:
+          $ref: '#/components/schemas/RequestTypeSummary'
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+        name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        fieldValues:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldValue'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+        requester:
+          $ref: '#/components/schemas/Citizen'
+        activeTasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskInstance'
+        slaDeadline:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RequestPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Request'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    RequestInput:
+      type: object
+      required: [requestTypeId, name]
+      properties:
+        requestTypeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        fieldValues:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldValue'
+
+    RequestCitizenUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        notes:
+          type: string
+        fieldValues:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldValue'
+
+    RequestAdminUpdate:
+      type: object
+      properties:
+        assignedToUserId:
+          type: string
+          format: uuid
+          nullable: true
+
+    # ── Attachment ─────────────────────────
+    Attachment:
+      type: object
+      required: [id, name, mimeType, sizeBytes, url, uploadedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        mimeType:
+          type: string
+          example: application/pdf
+        sizeBytes:
+          type: integer
+        url:
+          type: string
+          format: uri
+          description: Signed URL for download (time-limited)
+        uploadedBy:
+          $ref: '#/components/schemas/UserSummary'
+        uploadedAt:
+          type: string
+          format: date-time
+
+    # ── File Staging ───────────────────────
+    StagedFile:
+      type: object
+      properties:
+        stagedFileId:
+          type: string
+          format: uuid
+          description: Include as fieldValue for file_upload fields at request submission time
+        name:
+          type: string
+        mimeType:
+          type: string
+        sizeBytes:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+
+    # ── Task Instance ──────────────────────
+    TaskInstanceStatus:
+      type: string
+      enum: [waiting, active, completed, skipped]
+      description: |
+        - waiting: dependencies not yet met
+        - active: ready for action
+        - completed: finished (see outcome)
+        - skipped: bypassed due to upstream rejection or cancellation
+
+    TaskOutcome:
+      type: string
+      enum: [approved, rejected, clarification_requested]
+      description: |
+        - approved: workflow continues
+        - rejected: request moves to `rejected`; no further tasks activate
+        - clarification_requested: request moves to `pending_clarification`;
+          a follow-up of type `clarification_request` is created automatically
+
+    TaskInstance:
+      type: object
+      required: [id, requestId, taskDefinition, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+          format: uuid
+        taskDefinition:
+          $ref: '#/components/schemas/TaskDefinition'
+        status:
+          $ref: '#/components/schemas/TaskInstanceStatus'
+        outcome:
+          allOf:
+            - $ref: '#/components/schemas/TaskOutcome'
+          nullable: true
+        assignedTo:
+          allOf:
+            - $ref: '#/components/schemas/UserSummary'
+          nullable: true
+        activatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completionNotes:
+          type: string
+          nullable: true
+
+    TaskInstanceUpdate:
+      type: object
+      properties:
+        assignedToUserId:
+          type: string
+          format: uuid
+          nullable: true
+
+    # ── Follow-up ──────────────────────────
+    FollowUpType:
+      type: string
+      enum: [message, clarification_request, clarification_response]
+      description: |
+        - message: general communication
+        - clarification_request: created automatically when a task outcome is `clarification_requested`
+        - clarification_response: citizen reply; resumes workflow and moves request back to `in_progress`
+
+    FollowUp:
+      type: object
+      required: [id, requestId, type, author, message, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/FollowUpType'
+        author:
+          $ref: '#/components/schemas/UserSummary'
+        message:
+          type: string
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+        createdAt:
+          type: string
+          format: date-time
+
+    FollowUpInput:
+      type: object
+      required: [message, type]
+      properties:
+        type:
+          $ref: '#/components/schemas/FollowUpType'
+        message:
+          type: string
+
+    # ── Notification Settings ───────────────
+    NotificationEvent:
+      type: string
+      enum:
+        - consumer_registered
+        - request_submitted
+        - task_assigned
+        - task_handover
+        - clarification_requested
+        - clarification_responded
+        - request_completed
+        - request_rejected
+        - request_cancelled
+      description: |
+        - consumer_registered: new citizen account created
+        - request_submitted: citizen submits a new request
+        - task_assigned: a task is activated and assigned
+        - task_handover: a task is completed and the next task(s) activate
+        - clarification_requested: assignee requests more information from the citizen
+        - clarification_responded: citizen replies to a clarification request
+        - request_completed: all tasks approved; request finished
+        - request_rejected: request rejected by an assignee
+        - request_cancelled: request cancelled
+
+    NotificationRule:
+      type: object
+      properties:
+        event:
+          $ref: '#/components/schemas/NotificationEvent'
+        notifyAssignee:
+          type: boolean
+          default: true
+        notifyRequester:
+          type: boolean
+          default: true
+
+    NotificationSettings:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestTypeId:
+          type: string
+          format: uuid
+        rules:
+          type: array
+          description: |
+            One rule per event. Events not listed use the default (both assignee
+            and requester notified). Replacing the full settings replaces all rules.
+          items:
+            $ref: '#/components/schemas/NotificationRule'
+        updatedAt:
+          type: string
+          format: date-time
+
+    NotificationSettingsInput:
+      type: object
+      required: [rules]
+      properties:
+        rules:
+          type: array
+          items:
+            type: object
+            required: [event]
+            properties:
+              event:
+                $ref: '#/components/schemas/NotificationEvent'
+              notifyAssignee:
+                type: boolean
+                default: true
+              notifyRequester:
+                type: boolean
+                default: true
