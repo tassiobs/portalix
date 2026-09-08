@@ -1,5 +1,5 @@
-- get_portals-portalid-request-types
-- post_portals-portalid-request-types
-- get_portals-portalid-request-types-requesttypeid
-- patch_portals-portalid-request-types-requesttypeid
-- delete_portals-portalid-request-types-requesttypeid
+- listrequesttypes
+- createrequesttype
+- getrequesttype
+- updaterequesttype
+- archiverequesttype

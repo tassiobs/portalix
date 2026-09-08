@@ -1,4 +1,4 @@
-- get_portals-portalid-requests-requestid-tasks
-- get_portals-portalid-requests-requestid-tasks-taskinstanceid
-- patch_portals-portalid-requests-requestid-tasks-taskinstanceid
-- post_portals-portalid-requests-requestid-tasks-taskinstanceid-complete
+- listtasks
+- gettask
+- updatetask
+- completetask

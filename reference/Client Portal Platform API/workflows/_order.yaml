@@ -1,2 +1,2 @@
-- get_portals-portalid-request-types-requesttypeid-workflow
-- put_portals-portalid-request-types-requesttypeid-workflow
+- getworkflow
+- upsertworkflow

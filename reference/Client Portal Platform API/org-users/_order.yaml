@@ -1,8 +1,8 @@
-- get_org-users
-- post_org-users
-- get_org-users-userid
-- patch_org-users-userid
-- delete_org-users-userid
-- get_org-users-userid-roles
-- post_org-users-userid-roles
-- delete_org-users-userid-roles-roleid
+- listorgusers
+- createorguser
+- getorguser
+- updateorguser
+- deactivateorguser
+- listorguserroles
+- assignorgrole
+- removeorgrole

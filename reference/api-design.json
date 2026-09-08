@@ -3,7 +3,7 @@
   "info": {
     "title": "Client Portal Platform API",
     "version": "2.0.0",
-    "description": "API for the Client Portal Platform. Covers three access contexts:\n- **Organization management**: org members manage portals and internal users\n- **Portal administration**: internal users manage request types, workflows, and process requests\n- **Client portal**: citizens self-register on a specific portal and submit requests\n"
+    "description": "API for the Client Portal Platform. Covers three access contexts:\n- **Organization management**: org members manage portals and internal users\n- **Portal administration**: internal users manage request types, workflows, and process requests\n- **Client portal**: citizens self-register on a specific portal and submit requests\n\n**Authentication**: All endpoints not marked `security: []` require a Bearer JWT.\nAny authenticated endpoint can return `401` if the token is missing or invalid,\neven when not explicitly listed in that operation's responses.\n\n**Pagination**: Collections that may grow unboundedly (users, requests) return a\npaginated envelope `{ data: [], pagination: {} }`. Small, naturally bounded\ncollections (roles, departments, permissions, request types, workflow tasks) return\nbare arrays. This is intentional and consistent.\n\n**Spec vs URL version**: `info.version` (2.0.0) tracks the document revision.\nThe URL prefix `/api/v1` is the API routing version — these two numbers are\nindependent and can diverge as the spec evolves.\n"
   },
   "servers": [
     {
@@ -91,6 +91,7 @@
         "tags": [
           "Auth"
         ],
+        "operationId": "signUp",
         "summary": "Sign up and create a new organization",
         "description": "Creates a new organization and registers the caller as its Org Super Admin.\nA verification email is sent to the provided address.\nThe account cannot be used to sign in until the email is verified.\n",
         "security": [],
@@ -145,6 +146,7 @@
         "tags": [
           "Auth"
         ],
+        "operationId": "verifyEmail",
         "summary": "Verify email address",
         "description": "Exchanges the token from the verification email for a confirmed account.\nAfter successful verification the user is authenticated and receives a JWT.\n",
         "security": [],
@@ -188,6 +190,7 @@
         "tags": [
           "Auth"
         ],
+        "operationId": "resendVerification",
         "summary": "Resend verification email",
         "security": [],
         "requestBody": {
@@ -221,6 +224,7 @@
         "tags": [
           "Auth"
         ],
+        "operationId": "signIn",
         "summary": "Sign in as an org member",
         "description": "Password-based sign-in for internal org members.\nReturns 403 if the account exists but email is not yet verified.\n",
         "security": [],
@@ -273,6 +277,7 @@
         "tags": [
           "Auth"
         ],
+        "operationId": "signOut",
         "summary": "Sign out (invalidate token)",
         "responses": {
           "204": {
@@ -286,6 +291,7 @@
         "tags": [
           "Auth"
         ],
+        "operationId": "getMe",
         "summary": "Get current org member profile",
         "responses": {
           "200": {
@@ -307,6 +313,7 @@
         "tags": [
           "Auth"
         ],
+        "operationId": "updateMe",
         "summary": "Update own profile",
         "requestBody": {
           "required": true,
@@ -340,6 +347,7 @@
         "tags": [
           "Organizations"
         ],
+        "operationId": "getOrg",
         "summary": "Get current organization",
         "responses": {
           "200": {
@@ -357,6 +365,11 @@
       "patch": {
         "tags": [
           "Organizations"
+        ],
+        "operationId": "updateOrg",
+        "x-required-permissions": [
+          "org.users.manage",
+          "org.portals.manage"
         ],
         "summary": "Update organization",
         "description": "Requires org.users.manage or org.portals.manage permission.",
@@ -395,6 +408,10 @@
         "tags": [
           "Portals"
         ],
+        "operationId": "listPortals",
+        "x-required-permissions": [
+          "org.portals.manage"
+        ],
         "summary": "List portals in the organization",
         "description": "Requires org.portals.manage permission.",
         "parameters": [
@@ -432,6 +449,10 @@
       "post": {
         "tags": [
           "Portals"
+        ],
+        "operationId": "createPortal",
+        "x-required-permissions": [
+          "org.portals.manage"
         ],
         "summary": "Create a portal",
         "description": "Requires org.portals.manage permission.",
@@ -475,6 +496,10 @@
         "tags": [
           "Portals"
         ],
+        "operationId": "getPortal",
+        "x-required-permissions": [
+          "org.portals.manage"
+        ],
         "summary": "Get a portal",
         "description": "Requires org.portals.manage permission.",
         "responses": {
@@ -499,6 +524,10 @@
       "patch": {
         "tags": [
           "Portals"
+        ],
+        "operationId": "updatePortal",
+        "x-required-permissions": [
+          "org.portals.manage"
         ],
         "summary": "Update a portal",
         "description": "Requires org.portals.manage permission.",
@@ -538,6 +567,10 @@
         "tags": [
           "Portals"
         ],
+        "operationId": "archivePortal",
+        "x-required-permissions": [
+          "org.portals.manage"
+        ],
         "summary": "Archive a portal (soft delete)",
         "description": "Soft-deletes the portal. All data (requests, request types, users) is\npreserved but the portal becomes inaccessible.\nRequires org.portals.manage permission.\n",
         "responses": {
@@ -557,6 +590,10 @@
       "get": {
         "tags": [
           "Org Users"
+        ],
+        "operationId": "listOrgUsers",
+        "x-required-permissions": [
+          "org.users.manage"
         ],
         "summary": "List org users",
         "description": "Requires org.users.manage permission.",
@@ -584,7 +621,8 @@
             "in": "query",
             "schema": {
               "type": "integer",
-              "default": 1
+              "default": 1,
+              "minimum": 1
             }
           },
           {
@@ -593,6 +631,7 @@
             "schema": {
               "type": "integer",
               "default": 20,
+              "minimum": 1,
               "maximum": 100
             }
           }
@@ -616,6 +655,10 @@
       "post": {
         "tags": [
           "Org Users"
+        ],
+        "operationId": "createOrgUser",
+        "x-required-permissions": [
+          "org.users.manage"
         ],
         "summary": "Add an internal org user",
         "description": "Creates an internal user account and sends an invitation email.\nOrg users can only be added internally — no self-registration at org level.\nRequires org.users.manage permission.\n",
@@ -659,6 +702,10 @@
         "tags": [
           "Org Users"
         ],
+        "operationId": "getOrgUser",
+        "x-required-permissions": [
+          "org.users.manage"
+        ],
         "summary": "Get an org user",
         "description": "Requires org.users.manage permission.",
         "responses": {
@@ -683,6 +730,10 @@
       "patch": {
         "tags": [
           "Org Users"
+        ],
+        "operationId": "updateOrgUser",
+        "x-required-permissions": [
+          "org.users.manage"
         ],
         "summary": "Update an org user",
         "description": "Requires org.users.manage permission.",
@@ -722,6 +773,10 @@
         "tags": [
           "Org Users"
         ],
+        "operationId": "deactivateOrgUser",
+        "x-required-permissions": [
+          "org.users.manage"
+        ],
         "summary": "Deactivate an org user",
         "description": "Soft-deletes by setting status = inactive. Historical data is preserved.\nRequires org.users.manage permission.\n",
         "responses": {
@@ -746,6 +801,10 @@
       "get": {
         "tags": [
           "Org Users"
+        ],
+        "operationId": "listOrgUserRoles",
+        "x-required-permissions": [
+          "org.users.manage"
         ],
         "summary": "List org roles assigned to a user",
         "description": "Requires org.users.manage permission.",
@@ -775,6 +834,10 @@
         "tags": [
           "Org Users"
         ],
+        "operationId": "assignOrgRole",
+        "x-required-permissions": [
+          "org.users.manage"
+        ],
         "summary": "Assign an org role to a user",
         "description": "Requires org.users.manage permission.",
         "requestBody": {
@@ -797,7 +860,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Role assigned",
             "content": {
               "application/json": {
@@ -814,7 +877,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Role already assigned to this user"
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -831,6 +894,10 @@
       "delete": {
         "tags": [
           "Org Users"
+        ],
+        "operationId": "removeOrgRole",
+        "x-required-permissions": [
+          "org.users.manage"
         ],
         "summary": "Remove an org role from a user",
         "description": "Requires org.users.manage permission.",
@@ -852,6 +919,7 @@
         "tags": [
           "Org Roles"
         ],
+        "operationId": "listOrgRoles",
         "summary": "List org-level roles",
         "responses": {
           "200": {
@@ -872,6 +940,10 @@
       "post": {
         "tags": [
           "Org Roles"
+        ],
+        "operationId": "createOrgRole",
+        "x-required-permissions": [
+          "org.users.manage"
         ],
         "summary": "Create an org-level role",
         "description": "Requires org.users.manage permission.",
@@ -915,6 +987,7 @@
         "tags": [
           "Org Roles"
         ],
+        "operationId": "getOrgRole",
         "summary": "Get an org role",
         "responses": {
           "200": {
@@ -935,6 +1008,10 @@
       "patch": {
         "tags": [
           "Org Roles"
+        ],
+        "operationId": "updateOrgRole",
+        "x-required-permissions": [
+          "org.users.manage"
         ],
         "summary": "Update an org role",
         "description": "Requires org.users.manage permission. System-seeded roles cannot be deleted.",
@@ -974,6 +1051,10 @@
         "tags": [
           "Org Roles"
         ],
+        "operationId": "deleteOrgRole",
+        "x-required-permissions": [
+          "org.users.manage"
+        ],
         "summary": "Delete an org role",
         "description": "Requires org.users.manage permission.\nSystem-seeded default roles cannot be deleted.\nReturns 409 if the role is currently assigned to any user.\n",
         "responses": {
@@ -987,7 +1068,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Role is assigned to one or more users, or is a system default"
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -997,6 +1078,7 @@
         "tags": [
           "Org Roles"
         ],
+        "operationId": "listOrgPermissions",
         "summary": "List available org-level permissions",
         "description": "Returns the fixed set of permissions assignable to org-level roles.",
         "responses": {
@@ -1026,6 +1108,10 @@
         "tags": [
           "Portal Users"
         ],
+        "operationId": "listPortalUsers",
+        "x-required-permissions": [
+          "portal.users.manage"
+        ],
         "summary": "List users in a portal",
         "description": "Requires portal.users.manage permission.",
         "parameters": [
@@ -1052,7 +1138,8 @@
             "in": "query",
             "schema": {
               "type": "integer",
-              "default": 1
+              "default": 1,
+              "minimum": 1
             }
           },
           {
@@ -1061,6 +1148,7 @@
             "schema": {
               "type": "integer",
               "default": 20,
+              "minimum": 1,
               "maximum": 100
             }
           }
@@ -1087,6 +1175,10 @@
       "post": {
         "tags": [
           "Portal Users"
+        ],
+        "operationId": "addPortalUser",
+        "x-required-permissions": [
+          "portal.users.manage"
         ],
         "summary": "Add an org user to a portal",
         "description": "Grants an existing org user access to this portal and optionally assigns portal roles.\nThe user must already be an org member.\nRequires portal.users.manage permission.\n",
@@ -1118,7 +1210,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "User is already a member of this portal"
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -1138,6 +1230,10 @@
       "get": {
         "tags": [
           "Portal Users"
+        ],
+        "operationId": "getPortalUser",
+        "x-required-permissions": [
+          "portal.users.manage"
         ],
         "summary": "Get a portal user",
         "description": "Requires portal.users.manage permission.",
@@ -1163,6 +1259,10 @@
       "delete": {
         "tags": [
           "Portal Users"
+        ],
+        "operationId": "removePortalUser",
+        "x-required-permissions": [
+          "portal.users.manage"
         ],
         "summary": "Remove a user from a portal",
         "description": "Removes portal access. Historical data (assigned tasks, follow-ups) is preserved.\nRequires portal.users.manage permission.\n",
@@ -1192,6 +1292,10 @@
         "tags": [
           "Portal Users"
         ],
+        "operationId": "listPortalUserRoles",
+        "x-required-permissions": [
+          "portal.users.manage"
+        ],
         "summary": "List portal role assignments for a user",
         "description": "Requires portal.users.manage permission.",
         "responses": {
@@ -1220,6 +1324,10 @@
         "tags": [
           "Portal Users"
         ],
+        "operationId": "assignPortalRole",
+        "x-required-permissions": [
+          "portal.users.manage"
+        ],
         "summary": "Assign a portal role to a user",
         "description": "Assigns a role to the user with optional ABAC scope constraints.\nScope constraints are platform-defined; orgs configure values only.\nRequires portal.users.manage permission.\n",
         "requestBody": {
@@ -1233,7 +1341,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Role assigned",
             "content": {
               "application/json": {
@@ -1250,7 +1358,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Role already assigned to this user"
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -1270,6 +1378,10 @@
       "delete": {
         "tags": [
           "Portal Users"
+        ],
+        "operationId": "removePortalRole",
+        "x-required-permissions": [
+          "portal.users.manage"
         ],
         "summary": "Remove a portal role from a user",
         "description": "Requires portal.users.manage permission.",
@@ -1296,6 +1408,7 @@
         "tags": [
           "Portal Roles"
         ],
+        "operationId": "listPortalRoles",
         "summary": "List portal-level roles",
         "responses": {
           "200": {
@@ -1319,6 +1432,10 @@
       "post": {
         "tags": [
           "Portal Roles"
+        ],
+        "operationId": "createPortalRole",
+        "x-required-permissions": [
+          "portal.users.manage"
         ],
         "summary": "Create a portal-level role",
         "description": "Requires portal.users.manage permission.",
@@ -1368,6 +1485,7 @@
         "tags": [
           "Portal Roles"
         ],
+        "operationId": "getPortalRole",
         "summary": "Get a portal role",
         "responses": {
           "200": {
@@ -1388,6 +1506,10 @@
       "patch": {
         "tags": [
           "Portal Roles"
+        ],
+        "operationId": "updatePortalRole",
+        "x-required-permissions": [
+          "portal.users.manage"
         ],
         "summary": "Update a portal role",
         "description": "Requires portal.users.manage permission.",
@@ -1427,6 +1549,10 @@
         "tags": [
           "Portal Roles"
         ],
+        "operationId": "deletePortalRole",
+        "x-required-permissions": [
+          "portal.users.manage"
+        ],
         "summary": "Delete a portal role",
         "description": "Requires portal.users.manage permission.\nSystem-seeded default roles cannot be deleted.\nReturns 409 if currently assigned to any user.\n",
         "responses": {
@@ -1440,7 +1566,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Role is assigned to one or more users, or is a system default"
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -1455,6 +1581,7 @@
         "tags": [
           "Portal Roles"
         ],
+        "operationId": "listPortalPermissions",
         "summary": "List available portal-level permissions",
         "description": "Returns the fixed set of permissions assignable to portal-level roles.",
         "responses": {
@@ -1487,6 +1614,7 @@
         "tags": [
           "Portal Settings"
         ],
+        "operationId": "getPortalSettings",
         "summary": "Get portal settings",
         "description": "Accessible to any authenticated portal user.",
         "responses": {
@@ -1508,6 +1636,10 @@
       "patch": {
         "tags": [
           "Portal Settings"
+        ],
+        "operationId": "updatePortalSettings",
+        "x-required-permissions": [
+          "portal.settings.manage"
         ],
         "summary": "Update portal settings",
         "description": "Requires portal.settings.manage permission.",
@@ -1554,6 +1686,7 @@
         "tags": [
           "Departments"
         ],
+        "operationId": "listDepartments",
         "summary": "List departments in a portal",
         "description": "Accessible to any authenticated portal user.\nResults are silently filtered by the caller's ABAC scope constraints:\n- `departmentIds` scope: only the departments in that scope are returned\n",
         "responses": {
@@ -1578,6 +1711,10 @@
       "post": {
         "tags": [
           "Departments"
+        ],
+        "operationId": "createDepartment",
+        "x-required-permissions": [
+          "portal.departments.manage"
         ],
         "summary": "Create a department",
         "description": "Requires portal.departments.manage permission.",
@@ -1627,6 +1764,7 @@
         "tags": [
           "Departments"
         ],
+        "operationId": "getDepartment",
         "summary": "Get a department",
         "responses": {
           "200": {
@@ -1648,6 +1786,10 @@
         "tags": [
           "Departments"
         ],
+        "operationId": "updateDepartment",
+        "x-required-permissions": [
+          "portal.departments.manage"
+        ],
         "summary": "Update a department",
         "description": "Requires portal.departments.manage permission.",
         "requestBody": {
@@ -1655,7 +1797,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DepartmentInput"
+                "$ref": "#/components/schemas/DepartmentUpdate"
               }
             }
           }
@@ -1683,6 +1825,10 @@
         "tags": [
           "Departments"
         ],
+        "operationId": "deleteDepartment",
+        "x-required-permissions": [
+          "portal.departments.manage"
+        ],
         "summary": "Delete a department",
         "description": "Requires portal.departments.manage permission.",
         "responses": {
@@ -1696,7 +1842,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Department is referenced by existing request types"
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -1710,6 +1856,11 @@
       "get": {
         "tags": [
           "Request Types"
+        ],
+        "operationId": "listRequestTypes",
+        "x-required-permissions": [
+          "portal.request_types.view",
+          "portal.request_types.manage"
         ],
         "summary": "List request types in a portal",
         "description": "Requires portal.request_types.view or portal.request_types.manage permission.\nReturns all statuses; the client portal endpoint filters to active only.\nResults are silently filtered by the caller's ABAC scope constraints:\n- `departmentIds` scope: only request types belonging to those departments\n",
@@ -1755,6 +1906,10 @@
       "post": {
         "tags": [
           "Request Types"
+        ],
+        "operationId": "createRequestType",
+        "x-required-permissions": [
+          "portal.request_types.manage"
         ],
         "summary": "Create a request type",
         "description": "Requires portal.request_types.manage permission.",
@@ -1804,6 +1959,11 @@
         "tags": [
           "Request Types"
         ],
+        "operationId": "getRequestType",
+        "x-required-permissions": [
+          "portal.request_types.view",
+          "portal.request_types.manage"
+        ],
         "summary": "Get a request type with its fields",
         "description": "Requires portal.request_types.view or portal.request_types.manage permission.",
         "responses": {
@@ -1829,6 +1989,10 @@
         "tags": [
           "Request Types"
         ],
+        "operationId": "updateRequestType",
+        "x-required-permissions": [
+          "portal.request_types.manage"
+        ],
         "summary": "Update a request type",
         "description": "Requires portal.request_types.manage permission.",
         "requestBody": {
@@ -1836,7 +2000,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RequestTypeInput"
+                "$ref": "#/components/schemas/RequestTypeUpdate"
               }
             }
           }
@@ -1863,6 +2027,10 @@
       "delete": {
         "tags": [
           "Request Types"
+        ],
+        "operationId": "archiveRequestType",
+        "x-required-permissions": [
+          "portal.request_types.manage"
         ],
         "summary": "Archive a request type",
         "description": "Soft-deletes the request type. Existing requests are preserved.\nRequires portal.request_types.manage permission.\n",
@@ -1892,6 +2060,11 @@
         "tags": [
           "Workflows"
         ],
+        "operationId": "getWorkflow",
+        "x-required-permissions": [
+          "portal.workflows.view",
+          "portal.workflows.manage"
+        ],
         "summary": "Get the workflow for a request type",
         "description": "Requires portal.workflows.view or portal.workflows.manage permission.",
         "responses": {
@@ -1916,6 +2089,10 @@
       "put": {
         "tags": [
           "Workflows"
+        ],
+        "operationId": "upsertWorkflow",
+        "x-required-permissions": [
+          "portal.workflows.manage"
         ],
         "summary": "Create or replace the workflow for a request type",
         "description": "Replaces the entire workflow definition. Tasks use a client-provided `key`\nso that `dependsOn` references can be expressed before server IDs are assigned.\nRequires portal.workflows.manage permission.\n",
@@ -1965,6 +2142,10 @@
         "tags": [
           "Notification Settings"
         ],
+        "operationId": "getNotificationSettings",
+        "x-required-permissions": [
+          "portal.settings.manage"
+        ],
         "summary": "Get notification settings for a request type",
         "description": "Requires portal.settings.manage permission.",
         "responses": {
@@ -1989,6 +2170,10 @@
       "put": {
         "tags": [
           "Notification Settings"
+        ],
+        "operationId": "upsertNotificationSettings",
+        "x-required-permissions": [
+          "portal.settings.manage"
         ],
         "summary": "Create or replace notification settings for a request type",
         "description": "Requires portal.settings.manage permission.",
@@ -2030,35 +2215,11 @@
         "tags": [
           "File Uploads"
         ],
+        "operationId": "stageFile",
         "summary": "Stage a file before request submission",
         "description": "Uploads a file and returns a short-lived stagedFileId (TTL: 1 hour).\nUse when filling out a request form with file_upload fields: upload each\ndocument here first, then include the returned stagedFileId as the fieldValue\nwhen submitting the request. The backend materializes staged files as proper\nrequest attachments at creation time. Unused staged files are garbage-collected\nafter TTL expires.\nAccepted types: image/jpeg, image/png, image/webp, application/pdf.\n",
         "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "name",
-                  "file"
-                ],
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              },
-              "encoding": {
-                "file": {
-                  "contentType": "image/jpeg, image/png, image/webp, application/pdf"
-                }
-              }
-            }
-          }
+          "$ref": "#/components/requestBodies/FileUploadBody"
         },
         "responses": {
           "201": {
@@ -2086,6 +2247,11 @@
       "get": {
         "tags": [
           "Requests"
+        ],
+        "operationId": "listRequests",
+        "x-required-permissions": [
+          "portal.requests.view",
+          "portal.requests.manage"
         ],
         "summary": "List all requests in a portal",
         "description": "Requires portal.requests.view or portal.requests.manage permission.\nResults are silently filtered by the caller's ABAC scope constraints:\n- `departmentIds` scope: only requests whose request type belongs to those departments\n- `onlyAssignedToSelf` scope: only requests assigned to the caller\n",
@@ -2125,7 +2291,8 @@
             "in": "query",
             "schema": {
               "type": "integer",
-              "default": 1
+              "default": 1,
+              "minimum": 1
             }
           },
           {
@@ -2134,6 +2301,7 @@
             "schema": {
               "type": "integer",
               "default": 20,
+              "minimum": 1,
               "maximum": 100
             }
           }
@@ -2171,6 +2339,11 @@
         "tags": [
           "Requests"
         ],
+        "operationId": "getRequest",
+        "x-required-permissions": [
+          "portal.requests.view",
+          "portal.requests.manage"
+        ],
         "summary": "Get a request",
         "description": "Requires portal.requests.view or portal.requests.manage permission.",
         "responses": {
@@ -2195,6 +2368,10 @@
       "patch": {
         "tags": [
           "Requests"
+        ],
+        "operationId": "updateRequest",
+        "x-required-permissions": [
+          "portal.requests.manage"
         ],
         "summary": "Update a request (internal)",
         "description": "Requires portal.requests.manage permission.",
@@ -2244,6 +2421,10 @@
         "tags": [
           "Requests"
         ],
+        "operationId": "cancelRequest",
+        "x-required-permissions": [
+          "portal.requests.manage"
+        ],
         "summary": "Cancel a request (internal user)",
         "description": "Requires portal.requests.manage permission.",
         "requestBody": {
@@ -2275,7 +2456,7 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "409": {
-            "description": "Request cannot be cancelled in its current state"
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -2292,6 +2473,11 @@
       "get": {
         "tags": [
           "Requests"
+        ],
+        "operationId": "listFollowUps",
+        "x-required-permissions": [
+          "portal.requests.view",
+          "portal.requests.manage"
         ],
         "summary": "List follow-up messages on a request (internal view)",
         "description": "Requires portal.requests.view or portal.requests.manage permission.",
@@ -2320,6 +2506,10 @@
       "post": {
         "tags": [
           "Requests"
+        ],
+        "operationId": "createFollowUp",
+        "x-required-permissions": [
+          "portal.requests.manage"
         ],
         "summary": "Add a follow-up message (internal user)",
         "description": "Creates a follow-up message on the request thread.\nIf the message includes file attachments, post the follow-up first to obtain\nthe followUpId, then upload each file via\nPOST /portals/{portalId}/requests/{requestId}/follow-ups/{followUpId}/attachments.\nRequires portal.requests.manage permission.\n",
@@ -2369,35 +2559,14 @@
         "tags": [
           "Requests"
         ],
+        "operationId": "uploadFollowUpAttachment",
+        "x-required-permissions": [
+          "portal.requests.manage"
+        ],
         "summary": "Upload an attachment to a follow-up message (internal user)",
         "description": "Attaches a file to an existing follow-up. Follow-up attachments are kept\nseparate from request-level attachments and only appear in the thread.\nClient sequencing: create the follow-up first, then upload files.\nAttempting to upload before the follow-up exists will return 404.\n",
         "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "name",
-                  "file"
-                ],
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              },
-              "encoding": {
-                "file": {
-                  "contentType": "image/jpeg, image/png, image/webp, application/pdf"
-                }
-              }
-            }
-          }
+          "$ref": "#/components/requestBodies/FileUploadBody"
         },
         "responses": {
           "201": {
@@ -2435,35 +2604,14 @@
         "tags": [
           "Requests"
         ],
+        "operationId": "uploadRequestAttachment",
+        "x-required-permissions": [
+          "portal.requests.manage"
+        ],
         "summary": "Upload an attachment to a request",
         "description": "Requires portal.requests.manage permission.",
         "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "name",
-                  "file"
-                ],
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              },
-              "encoding": {
-                "file": {
-                  "contentType": "image/jpeg, image/png, image/webp, application/pdf"
-                }
-              }
-            }
-          }
+          "$ref": "#/components/requestBodies/FileUploadBody"
         },
         "responses": {
           "201": {
@@ -2497,6 +2645,11 @@
       "get": {
         "tags": [
           "Requests"
+        ],
+        "operationId": "downloadReceipt",
+        "x-required-permissions": [
+          "portal.requests.view",
+          "portal.requests.manage"
         ],
         "summary": "Download the submission receipt (PDF)",
         "description": "Requires portal.requests.view or portal.requests.manage permission.",
@@ -2533,6 +2686,11 @@
       "get": {
         "tags": [
           "Request Tasks"
+        ],
+        "operationId": "listTasks",
+        "x-required-permissions": [
+          "portal.requests.view",
+          "portal.requests.manage"
         ],
         "summary": "List task instances for a request",
         "description": "Requires portal.requests.view or portal.requests.manage permission.\nResults are silently filtered by the caller's ABAC scope constraints:\n- `onlyAssignedToSelf` scope: only task instances assigned to the caller\n",
@@ -2575,6 +2733,11 @@
         "tags": [
           "Request Tasks"
         ],
+        "operationId": "getTask",
+        "x-required-permissions": [
+          "portal.requests.view",
+          "portal.requests.manage"
+        ],
         "summary": "Get a task instance",
         "description": "Requires portal.requests.view or portal.requests.manage permission.",
         "responses": {
@@ -2599,6 +2762,10 @@
       "patch": {
         "tags": [
           "Request Tasks"
+        ],
+        "operationId": "updateTask",
+        "x-required-permissions": [
+          "portal.requests.manage"
         ],
         "summary": "Update a task instance (e.g. reassign)",
         "description": "Requires portal.requests.manage permission.",
@@ -2648,6 +2815,10 @@
         "tags": [
           "Request Tasks"
         ],
+        "operationId": "completeTask",
+        "x-required-permissions": [
+          "portal.requests.manage"
+        ],
         "summary": "Mark a task instance as complete",
         "description": "Completing a task triggers evaluation of the workflow graph: tasks whose\ndependencies are now fully satisfied are activated. If this is the last task,\nthe request moves to `completed`.\n\nWhen `outcome` is `clarification_requested`, the workflow pauses and the request\nmoves to `pending_clarification` until the citizen responds via the client\nfollow-up endpoint with type `clarification_response`.\n\nWhen `outcome` is `rejected`, the request moves to `rejected` and no further\ntasks are activated. Requires portal.requests.manage permission.\n",
         "requestBody": {
@@ -2686,7 +2857,7 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "409": {
-            "description": "Task is not in a completable state"
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -2701,6 +2872,7 @@
         "tags": [
           "Client Auth"
         ],
+        "operationId": "clientSignUp",
         "summary": "Citizen self-registration on a portal",
         "security": [],
         "requestBody": {
@@ -2743,6 +2915,7 @@
         "tags": [
           "Client Auth"
         ],
+        "operationId": "clientSignIn",
         "summary": "Citizen sign-in on a portal",
         "security": [],
         "requestBody": {
@@ -2796,6 +2969,7 @@
         "tags": [
           "Client Auth"
         ],
+        "operationId": "clientRequestMagicLink",
         "summary": "Request a magic link for citizen sign-up or sign-in",
         "description": "Returns 403 if magic link authentication is disabled in portal settings.",
         "security": [],
@@ -2862,6 +3036,7 @@
         "tags": [
           "Client Auth"
         ],
+        "operationId": "clientVerifyMagicLink",
         "summary": "Verify a magic link token",
         "security": [],
         "requestBody": {
@@ -2909,6 +3084,7 @@
         "tags": [
           "Client Auth"
         ],
+        "operationId": "clientSignOut",
         "summary": "Citizen sign-out",
         "responses": {
           "204": {
@@ -2927,6 +3103,7 @@
         "tags": [
           "Client Auth"
         ],
+        "operationId": "clientGetMe",
         "summary": "Get current citizen profile",
         "responses": {
           "200": {
@@ -2948,6 +3125,7 @@
         "tags": [
           "Client Auth"
         ],
+        "operationId": "clientUpdateMe",
         "summary": "Update citizen profile",
         "requestBody": {
           "required": true,
@@ -2986,6 +3164,7 @@
         "tags": [
           "Client Requests"
         ],
+        "operationId": "clientListRequestTypes",
         "summary": "List active request types available to citizens",
         "description": "Returns only active (published) request types.",
         "security": [],
@@ -3022,6 +3201,7 @@
         "tags": [
           "Client Requests"
         ],
+        "operationId": "clientGetRequestType",
         "summary": "Get a request type (citizen view)",
         "description": "Returns the request type with its fields for form rendering. Only active types accessible.",
         "security": [],
@@ -3052,6 +3232,7 @@
         "tags": [
           "Client Requests"
         ],
+        "operationId": "clientListRequests",
         "summary": "List the citizen's own requests",
         "parameters": [
           {
@@ -3066,7 +3247,8 @@
             "in": "query",
             "schema": {
               "type": "integer",
-              "default": 1
+              "default": 1,
+              "minimum": 1
             }
           },
           {
@@ -3075,6 +3257,7 @@
             "schema": {
               "type": "integer",
               "default": 20,
+              "minimum": 1,
               "maximum": 100
             }
           }
@@ -3096,6 +3279,7 @@
         "tags": [
           "Client Requests"
         ],
+        "operationId": "clientSubmitRequest",
         "summary": "Submit a new request",
         "requestBody": {
           "required": true,
@@ -3137,6 +3321,7 @@
         "tags": [
           "Client Requests"
         ],
+        "operationId": "clientGetRequest",
         "summary": "Get a citizen's own request",
         "responses": {
           "200": {
@@ -3161,6 +3346,7 @@
         "tags": [
           "Client Requests"
         ],
+        "operationId": "clientUpdateRequest",
         "summary": "Update a request (citizen)",
         "description": "Citizens may update name, notes, and fieldValues while the request is open.",
         "requestBody": {
@@ -3209,6 +3395,7 @@
         "tags": [
           "Client Requests"
         ],
+        "operationId": "clientCancelRequest",
         "summary": "Cancel a request (citizen)",
         "requestBody": {
           "content": {
@@ -3239,7 +3426,7 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "409": {
-            "description": "Request cannot be cancelled in its current state"
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -3257,6 +3444,7 @@
         "tags": [
           "Client Requests"
         ],
+        "operationId": "clientListFollowUps",
         "summary": "List follow-up messages (citizen view)",
         "description": "Returns the shared thread; internal-only messages are excluded.",
         "responses": {
@@ -3285,6 +3473,7 @@
         "tags": [
           "Client Requests"
         ],
+        "operationId": "clientCreateFollowUp",
         "summary": "Add a follow-up message (citizen)",
         "description": "Used for general messages and clarification responses (type: clarification_response).\nIf the message includes files, post the follow-up first to obtain the followUpId,\nthen upload via .../follow-ups/{followUpId}/attachments.\n",
         "requestBody": {
@@ -3333,35 +3522,11 @@
         "tags": [
           "Client Requests"
         ],
+        "operationId": "clientUploadFollowUpAttachment",
         "summary": "Upload an attachment to a citizen follow-up",
         "description": "Client sequencing: create the follow-up first, then upload files.\nAttempting to upload before the follow-up exists will return 404.\n",
         "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "name",
-                  "file"
-                ],
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              },
-              "encoding": {
-                "file": {
-                  "contentType": "image/jpeg, image/png, image/webp, application/pdf"
-                }
-              }
-            }
-          }
+          "$ref": "#/components/requestBodies/FileUploadBody"
         },
         "responses": {
           "201": {
@@ -3399,6 +3564,7 @@
         "tags": [
           "Client Requests"
         ],
+        "operationId": "clientDownloadReceipt",
         "summary": "Download submission receipt (PDF)",
         "responses": {
           "200": {
@@ -3423,6 +3589,38 @@
     }
   },
   "components": {
+    "requestBodies": {
+      "FileUploadBody": {
+        "required": true,
+        "content": {
+          "multipart/form-data": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "name",
+                "file"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 255,
+                  "description": "Consumer-provided label for this file"
+                },
+                "file": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "encoding": {
+              "file": {
+                "contentType": "image/jpeg, image/png, image/webp, application/pdf"
+              }
+            }
+          }
+        }
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
@@ -3506,13 +3704,34 @@
     },
     "responses": {
       "Unauthorized": {
-        "description": "Missing or invalid authentication token"
+        "description": "Missing or invalid authentication token",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
       },
       "Forbidden": {
-        "description": "Caller does not have the required permission"
+        "description": "Caller does not have the required permission",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
       },
       "NotFound": {
-        "description": "Resource not found"
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
       },
       "UnprocessableEntity": {
         "description": "Validation errors",
@@ -3523,11 +3742,36 @@
             }
           }
         }
+      },
+      "Conflict": {
+        "description": "Conflict — the request cannot be completed due to the current state of the resource",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "UnexpectedError": {
+        "description": "Unexpected server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
       }
     },
     "schemas": {
       "Organization": {
         "type": "object",
+        "required": [
+          "id",
+          "name",
+          "createdAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -3552,6 +3796,15 @@
       },
       "Portal": {
         "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "clientDomain",
+          "adminDomain",
+          "createdBy",
+          "createdAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -3637,6 +3890,14 @@
       },
       "OrgUser": {
         "type": "object",
+        "required": [
+          "id",
+          "email",
+          "emailVerified",
+          "status",
+          "orgRoles",
+          "createdAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -3719,6 +3980,13 @@
       },
       "PortalUser": {
         "type": "object",
+        "required": [
+          "id",
+          "email",
+          "status",
+          "roleAssignments",
+          "addedAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -3835,6 +4103,11 @@
       },
       "Citizen": {
         "type": "object",
+        "required": [
+          "id",
+          "email",
+          "createdAt"
+        ],
         "description": "External user with access to a specific client portal; no RBAC role",
         "properties": {
           "id": {
@@ -3975,6 +4248,11 @@
       },
       "RoleAssignment": {
         "type": "object",
+        "required": [
+          "id",
+          "role",
+          "assignedAt"
+        ],
         "description": "A role granted to a portal user, optionally scoped by ABAC constraints",
         "properties": {
           "id": {
@@ -4066,6 +4344,14 @@
       },
       "Role": {
         "type": "object",
+        "required": [
+          "id",
+          "name",
+          "level",
+          "permissions",
+          "isDefault",
+          "createdAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -4270,8 +4556,52 @@
           }
         }
       },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "message",
+          "code"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Optional structured context (field-level info, conflict reason, etc.)",
+            "nullable": true
+          }
+        }
+      },
+      "FieldOption": {
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 100
+          }
+        }
+      },
       "Department": {
         "type": "object",
+        "required": [
+          "id",
+          "name",
+          "createdAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -4293,7 +4623,17 @@
         ],
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 255
+          }
+        }
+      },
+      "DepartmentUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255
           }
         }
       },
@@ -4338,19 +4678,7 @@
             "type": "array",
             "description": "Required when type is single_dropdown or multi_select; not used for file_upload",
             "items": {
-              "type": "object",
-              "required": [
-                "label",
-                "value"
-              ],
-              "properties": {
-                "label": {
-                  "type": "string"
-                },
-                "value": {
-                  "type": "string"
-                }
-              }
+              "$ref": "#/components/schemas/FieldOption"
             }
           }
         }
@@ -4405,19 +4733,7 @@
           "options": {
             "type": "array",
             "items": {
-              "type": "object",
-              "required": [
-                "label",
-                "value"
-              ],
-              "properties": {
-                "label": {
-                  "type": "string"
-                },
-                "value": {
-                  "type": "string"
-                }
-              }
+              "$ref": "#/components/schemas/FieldOption"
             }
           }
         }
@@ -4458,6 +4774,12 @@
       },
       "RequestTypeSummary": {
         "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "createdAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -4513,7 +4835,33 @@
         ],
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 255
+          },
+          "status": {
+            "$ref": "#/components/schemas/RequestTypeStatus"
+          },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sla": {
+            "$ref": "#/components/schemas/SLAInput"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldDefinitionInput"
+            }
+          }
+        }
+      },
+      "RequestTypeUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255
           },
           "status": {
             "$ref": "#/components/schemas/RequestTypeStatus"
@@ -4670,6 +5018,19 @@
       },
       "Request": {
         "type": "object",
+        "required": [
+          "id",
+          "protocolNumber",
+          "requestType",
+          "status",
+          "name",
+          "fieldValues",
+          "attachments",
+          "requester",
+          "activeTasks",
+          "createdAt",
+          "updatedAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -4797,6 +5158,14 @@
       },
       "Attachment": {
         "type": "object",
+        "required": [
+          "id",
+          "name",
+          "mimeType",
+          "sizeBytes",
+          "url",
+          "uploadedAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -4870,6 +5239,12 @@
       },
       "TaskInstance": {
         "type": "object",
+        "required": [
+          "id",
+          "requestId",
+          "taskDefinition",
+          "status"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -4943,6 +5318,14 @@
       },
       "FollowUp": {
         "type": "object",
+        "required": [
+          "id",
+          "requestId",
+          "type",
+          "author",
+          "message",
+          "createdAt"
+        ],
         "properties": {
           "id": {
             "type": "string",

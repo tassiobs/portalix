@@ -1,7 +1,7 @@
-- get_portals-portalid-users
-- post_portals-portalid-users
-- get_portals-portalid-users-userid
-- delete_portals-portalid-users-userid
-- get_portals-portalid-users-userid-roles
-- post_portals-portalid-users-userid-roles
-- delete_portals-portalid-users-userid-roles-roleid
+- listportalusers
+- addportaluser
+- getportaluser
+- removeportaluser
+- listportaluserroles
+- assignportalrole
+- removeportalrole

@@ -1,6 +1,6 @@
-- get_org-roles
-- post_org-roles
-- get_org-roles-roleid
-- patch_org-roles-roleid
-- delete_org-roles-roleid
-- get_org-permissions
+- listorgroles
+- createorgrole
+- getorgrole
+- updateorgrole
+- deleteorgrole
+- listorgpermissions

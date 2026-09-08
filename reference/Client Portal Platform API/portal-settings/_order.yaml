@@ -1,2 +1,2 @@
-- get_portals-portalid-settings
-- patch_portals-portalid-settings
+- getportalsettings
+- updateportalsettings

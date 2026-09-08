@@ -1,2 +1,2 @@
-- get_portals-portalid-request-types-requesttypeid-notification-settings
-- put_portals-portalid-request-types-requesttypeid-notification-settings
+- getnotificationsettings
+- upsertnotificationsettings
