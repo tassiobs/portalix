@@ -1,0 +1,229 @@
+# portalu
+
+> Multi-tenant client portal platform. Organizations create portals where citizens submit structured requests. Internal users manage those requests through configurable, RBAC-controlled workflows.
+
+portalu is designed for government agencies and public-sector organizations that need to offer structured, trackable service requests to citizens — similar to a digital "protocolo" system. Each organization can run multiple portals (e.g. one per department or service area), each with its own domain, user base, and configuration.
+
+## Architecture
+
+The data model follows a strict hierarchy:
+
+**Organization → Portals → Departments → Request Types → Requests**
+
+- An **Organization** is the top-level tenant. It has internal users (org members) and can own multiple portals.
+- A **Portal** is a scoped service environment with its own citizen-facing domain, admin domain, settings, and internal user roster. Portals are isolated from each other.
+- **Departments** group request types within a portal. They are also used as ABAC scope constraints on role assignments.
+- **Request Types** define the form fields, SLA, and workflow for a category of citizen request. They belong to a department and can be `draft`, `active`, or `archived`.
+- **Requests** are citizen submissions against an active request type. They progress through a configurable workflow of tasks.
+
+## Authentication
+
+The API has two completely separate authentication contexts. Using the wrong context returns 401.
+
+**Org member auth** — for internal users managing portals and processing requests:
+- Base path: `/auth/*`
+- Password-based. Email must be verified before sign-in is allowed.
+- JWT is scoped to the organization.
+
+**Citizen auth** — for end users submitting requests on a specific portal:
+- Base path: `/portals/{portalId}/client/auth/*`
+- Supports password or magic link (configurable per portal).
+- JWT is scoped to that portal's client context. It cannot be used on org or admin endpoints.
+
+## Access Control
+
+**RBAC (Role-Based Access Control)** is dynamic — organizations define their own roles at org level and portal level, each carrying a set of platform-defined permissions.
+
+- Org-level permissions: `org.users.manage`, `org.portals.manage`
+- Portal-level permissions: `portal.users.manage`, `portal.settings.manage`, `portal.request_types.view`, `portal.request_types.manage`, `portal.workflows.view`, `portal.workflows.manage`, `portal.departments.manage`, `portal.requests.view`, `portal.requests.manage`
+- System-seeded default roles cannot be deleted. Custom roles can be created, updated, and deleted (if unassigned).
+
+**ABAC (Attribute-Based Access Control)** adds scope constraints to portal role assignments. Constraints are platform-defined; organizations configure values, not rules.
+
+- `departmentIds`: restricts a user's access to resources (request types, requests, tasks) belonging to specific departments. Omit for org-wide access.
+- `onlyAssignedToSelf`: when `true`, the user can only see requests and tasks explicitly assigned to them.
+- Filtering is applied silently — scoped users receive narrowed results without an error.
+
+**Citizens have no RBAC role.** They access only their own requests via the client portal context.
+
+## File Uploads
+
+File upload follows a two-step staging pattern for request form submissions:
+
+1. Upload the file via `POST /uploads/stage` → receive a `stagedFileId` (TTL: 1 hour).
+2. Submit the request and include `stagedFileId` as the `value` for any `file_upload` field in `fieldValues`.
+
+For follow-up message attachments (internal or citizen), the sequencing is:
+1. Create the follow-up first to obtain a `followUpId`.
+2. Upload files via `POST .../follow-ups/{followUpId}/attachments`.
+
+Accepted file types: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`.
+
+## Request Lifecycle
+
+Requests move through these statuses: `open → in_progress → completed | rejected | cancelled | pending_clarification`
+
+- `open`: submitted, not yet acted on.
+- `in_progress`: one or more workflow tasks are active.
+- `pending_clarification`: workflow paused; a task assignee requested more information from the citizen. Resumes when the citizen posts a follow-up with `type: clarification_response`.
+- `completed`: all tasks approved.
+- `rejected`: rejected by a task assignee; no further tasks activate.
+- `cancelled`: cancelled by citizen or internal user.
+
+Task outcomes: `approved`, `rejected`, `clarification_requested`.
+
+## API Conventions
+
+**Pagination**: Endpoints for users and requests return a paginated envelope `{ data: [], pagination: { page, perPage, total, totalPages } }`. Small, naturally bounded collections (roles, departments, permissions, request types, workflow tasks) return bare arrays. `page` minimum is 1, `perPage` maximum is 100.
+
+**Soft deletes**: Portals, org users, and request types are never hard-deleted. Archiving/deactivating preserves historical data. Roles and departments can be hard-deleted if unassigned.
+
+**Error responses**: All errors return `{ message, code, details }`. `code` is machine-readable. `details` carries optional structured context (e.g. field-level validation info, conflict reason). Validation errors (422) additionally include an `errors` array with per-field messages.
+
+**Conflict (409)**: Returned when a state constraint prevents the operation — e.g. assigning a role already assigned, deleting a role in use, or cancelling a request that cannot be cancelled.
+
+**Permissions on operations**: Every permission-gated operation carries an `x-required-permissions` extension listing the permission keys that grant access. Operations requiring either of two permissions list both; holding any one is sufficient.
+
+## API Reference
+
+Append `.md` to any documentation page URL to get its markdown version.
+
+### Auth (Org Members)
+
+- [Sign up and create a new organization](https://portalu.readme.io/reference/signup.md): Creates a new organization and registers the caller as its Org Super Admin. A verification email is sent to the provided address. The account cannot be used to sign in until the email is verified.
+- [Verify email address](https://portalu.readme.io/reference/verifyemail.md): Exchanges the token from the verification email for a confirmed account. After successful verification the user is authenticated and receives a JWT.
+- [Resend verification email](https://portalu.readme.io/reference/resendverification.md)
+- [Sign in as an org member](https://portalu.readme.io/reference/signin.md): Password-based sign-in for internal org members. Returns 403 if the account exists but email is not yet verified.
+- [Sign out (invalidate token)](https://portalu.readme.io/reference/signout.md)
+- [Get current org member profile](https://portalu.readme.io/reference/getme.md)
+- [Update own profile](https://portalu.readme.io/reference/updateme.md)
+
+### Organization
+
+- [Get current organization](https://portalu.readme.io/reference/getorg.md)
+- [Update organization](https://portalu.readme.io/reference/updateorg.md): Requires org.users.manage or org.portals.manage permission.
+
+### Portals
+
+- [List portals in the organization](https://portalu.readme.io/reference/listportals.md): Requires org.portals.manage permission.
+- [Create a portal](https://portalu.readme.io/reference/createportal.md): Requires org.portals.manage permission.
+- [Get a portal](https://portalu.readme.io/reference/getportal.md): Requires org.portals.manage permission.
+- [Update a portal](https://portalu.readme.io/reference/updateportal.md): Requires org.portals.manage permission.
+- [Archive a portal (soft delete)](https://portalu.readme.io/reference/archiveportal.md): Soft-deletes the portal. All data is preserved but the portal becomes inaccessible. Requires org.portals.manage permission.
+
+### Org Users
+
+- [List org users](https://portalu.readme.io/reference/listorgusers.md): Requires org.users.manage permission.
+- [Add an internal org user](https://portalu.readme.io/reference/createorguser.md): Creates an internal user account and sends an invitation email. No self-registration at org level. Requires org.users.manage permission.
+- [Get an org user](https://portalu.readme.io/reference/getorguser.md): Requires org.users.manage permission.
+- [Update an org user](https://portalu.readme.io/reference/updateorguser.md): Requires org.users.manage permission.
+- [Deactivate an org user](https://portalu.readme.io/reference/deactivateorguser.md): Soft-deletes by setting status = inactive. Historical data is preserved. Requires org.users.manage permission.
+- [List org roles assigned to a user](https://portalu.readme.io/reference/listorguserroles.md): Requires org.users.manage permission.
+- [Assign an org role to a user](https://portalu.readme.io/reference/assignorgrole.md): Requires org.users.manage permission.
+- [Remove an org role from a user](https://portalu.readme.io/reference/removeorgrole.md): Requires org.users.manage permission.
+
+### Org Roles
+
+- [List org-level roles](https://portalu.readme.io/reference/listorgroles.md)
+- [Create an org-level role](https://portalu.readme.io/reference/createorgrole.md): Requires org.users.manage permission.
+- [Get an org role](https://portalu.readme.io/reference/getorgrole.md)
+- [Update an org role](https://portalu.readme.io/reference/updateorgrole.md): Requires org.users.manage permission.
+- [Delete an org role](https://portalu.readme.io/reference/deleteorgrole.md): Returns 409 if the role is currently assigned to any user. Requires org.users.manage permission.
+- [List available org-level permissions](https://portalu.readme.io/reference/listorgpermissions.md): Returns the fixed set of permissions assignable to org-level roles.
+
+### Portal Users
+
+- [List users in a portal](https://portalu.readme.io/reference/listportalusers.md): Requires portal.users.manage permission.
+- [Add an org user to a portal](https://portalu.readme.io/reference/addportaluser.md): The user must already be an org member. Requires portal.users.manage permission.
+- [Get a portal user](https://portalu.readme.io/reference/getportaluser.md): Requires portal.users.manage permission.
+- [Remove a user from a portal](https://portalu.readme.io/reference/removeportaluser.md): Historical data is preserved. Requires portal.users.manage permission.
+- [List portal role assignments for a user](https://portalu.readme.io/reference/listportaluserroles.md): Requires portal.users.manage permission.
+- [Assign a portal role to a user](https://portalu.readme.io/reference/assignportalrole.md): Supports optional ABAC scope constraints. Requires portal.users.manage permission.
+- [Remove a portal role from a user](https://portalu.readme.io/reference/removeportalrole.md): Requires portal.users.manage permission.
+
+### Portal Roles
+
+- [List portal-level roles](https://portalu.readme.io/reference/listportalroles.md)
+- [Create a portal-level role](https://portalu.readme.io/reference/createportalrole.md): Requires portal.users.manage permission.
+- [Get a portal role](https://portalu.readme.io/reference/getportalrole.md)
+- [Update a portal role](https://portalu.readme.io/reference/updateportalrole.md): Requires portal.users.manage permission.
+- [Delete a portal role](https://portalu.readme.io/reference/deleteportalrole.md): Returns 409 if currently assigned to any user. Requires portal.users.manage permission.
+- [List available portal-level permissions](https://portalu.readme.io/reference/listportalpermissions.md): Returns the fixed set of permissions assignable to portal-level roles.
+
+### Portal Settings
+
+- [Get portal settings](https://portalu.readme.io/reference/getportalsettings.md): Accessible to any authenticated portal user.
+- [Update portal settings](https://portalu.readme.io/reference/updateportalsettings.md): Requires portal.settings.manage permission.
+
+### Departments
+
+- [List departments in a portal](https://portalu.readme.io/reference/listdepartments.md): Results are silently filtered by the caller's ABAC departmentIds scope constraint.
+- [Create a department](https://portalu.readme.io/reference/createdepartment.md): Requires portal.departments.manage permission.
+- [Get a department](https://portalu.readme.io/reference/getdepartment.md)
+- [Update a department](https://portalu.readme.io/reference/updatedepartment.md): Requires portal.departments.manage permission.
+- [Delete a department](https://portalu.readme.io/reference/deletedepartment.md): Requires portal.departments.manage permission.
+
+### Request Types
+
+- [List request types in a portal](https://portalu.readme.io/reference/listrequesttypes.md): Returns all statuses; the client portal endpoint filters to active only. Silently filtered by ABAC departmentIds scope. Requires portal.request_types.view or portal.request_types.manage.
+- [Create a request type](https://portalu.readme.io/reference/createrequesttype.md): Requires portal.request_types.manage permission.
+- [Get a request type with its fields](https://portalu.readme.io/reference/getrequesttype.md): Requires portal.request_types.view or portal.request_types.manage permission.
+- [Update a request type](https://portalu.readme.io/reference/updaterequesttype.md): Requires portal.request_types.manage permission.
+- [Archive a request type](https://portalu.readme.io/reference/archiverequesttype.md): Soft-deletes the request type. Existing requests are preserved. Requires portal.request_types.manage permission.
+
+### Workflows
+
+- [Get the workflow for a request type](https://portalu.readme.io/reference/getworkflow.md): Requires portal.workflows.view or portal.workflows.manage permission.
+- [Create or replace the workflow for a request type](https://portalu.readme.io/reference/upsertworkflow.md): Replaces the entire workflow definition. Tasks use a client-provided `key` for `dependsOn` references before server IDs are assigned. Requires portal.workflows.manage permission.
+
+### Notification Settings
+
+- [Get notification settings for a request type](https://portalu.readme.io/reference/getnotificationsettings.md): Requires portal.settings.manage permission.
+- [Create or replace notification settings for a request type](https://portalu.readme.io/reference/upsertnotificationsettings.md): Requires portal.settings.manage permission.
+
+### File Uploads
+
+- [Stage a file before request submission](https://portalu.readme.io/reference/stagefile.md): Returns a stagedFileId (TTL: 1 hour) to include as a fieldValue for file_upload fields. Unused staged files are garbage-collected after TTL expires. Accepted types: image/jpeg, image/png, image/webp, application/pdf.
+
+### Requests (Internal)
+
+- [List all requests in a portal](https://portalu.readme.io/reference/listrequests.md): Silently filtered by ABAC scope (departmentIds, onlyAssignedToSelf). Requires portal.requests.view or portal.requests.manage.
+- [Get a request](https://portalu.readme.io/reference/getrequest.md): Requires portal.requests.view or portal.requests.manage permission.
+- [Update a request (internal)](https://portalu.readme.io/reference/updaterequest.md): Requires portal.requests.manage permission.
+- [Cancel a request (internal user)](https://portalu.readme.io/reference/cancelrequest.md): Requires portal.requests.manage permission.
+- [List follow-up messages on a request (internal view)](https://portalu.readme.io/reference/listfollowups.md): Includes internal-only messages. Requires portal.requests.view or portal.requests.manage.
+- [Add a follow-up message (internal user)](https://portalu.readme.io/reference/createfollowup.md): Create the follow-up first, then upload attachments via the attachments sub-endpoint. Requires portal.requests.manage permission.
+- [Upload an attachment to a follow-up message (internal user)](https://portalu.readme.io/reference/uploadfollowupattachment.md): Follow-up must exist before uploading. Attachments appear in the thread only, not in request-level attachments.
+- [Upload an attachment to a request](https://portalu.readme.io/reference/uploadrequestattachment.md): Requires portal.requests.manage permission.
+- [Download the submission receipt (PDF)](https://portalu.readme.io/reference/downloadreceipt.md): Requires portal.requests.view or portal.requests.manage permission.
+
+### Request Tasks
+
+- [List task instances for a request](https://portalu.readme.io/reference/listtasks.md): Silently filtered by onlyAssignedToSelf ABAC scope. Requires portal.requests.view or portal.requests.manage.
+- [Get a task instance](https://portalu.readme.io/reference/gettask.md): Requires portal.requests.view or portal.requests.manage permission.
+- [Update a task instance (e.g. reassign)](https://portalu.readme.io/reference/updatetask.md): Requires portal.requests.manage permission.
+- [Mark a task instance as complete](https://portalu.readme.io/reference/completetask.md): Completing a task triggers workflow graph evaluation. Outcome `clarification_requested` pauses the workflow; outcome `rejected` terminates it. Requires portal.requests.manage permission.
+
+### Client Auth (Citizens)
+
+- [Citizen self-registration on a portal](https://portalu.readme.io/reference/clientsignup.md)
+- [Citizen sign-in on a portal](https://portalu.readme.io/reference/clientsignin.md)
+- [Request a magic link for citizen sign-up or sign-in](https://portalu.readme.io/reference/clientrequestmagiclink.md): Returns 403 if magic link authentication is disabled in portal settings.
+- [Verify a magic link token](https://portalu.readme.io/reference/clientverifymagiclink.md)
+- [Citizen sign-out](https://portalu.readme.io/reference/clientsignout.md)
+- [Get current citizen profile](https://portalu.readme.io/reference/clientgetme.md)
+- [Update citizen profile](https://portalu.readme.io/reference/clientupdateme.md)
+
+### Client Requests (Citizens)
+
+- [List active request types available to citizens](https://portalu.readme.io/reference/clientlistrequesttypes.md): Returns only active (published) request types.
+- [Get a request type (citizen view)](https://portalu.readme.io/reference/clientgetrequesttype.md): Returns fields for form rendering. Only active types accessible.
+- [List the citizen's own requests](https://portalu.readme.io/reference/clientlistrequests.md)
+- [Submit a new request](https://portalu.readme.io/reference/clientsubmitrequest.md)
+- [Get a citizen's own request](https://portalu.readme.io/reference/clientgetrequest.md)
+- [Update a request (citizen)](https://portalu.readme.io/reference/clientupdaterequest.md): Citizens may update name, notes, and fieldValues while the request is open.
+- [Cancel a request (citizen)](https://portalu.readme.io/reference/clientcancelrequest.md)
+- [List follow-up messages (citizen view)](https://portalu.readme.io/reference/clientlistfollowups.md): Returns the shared thread; internal-only messages are excluded.
+- [Add a follow-up message (citizen)](https://portalu.readme.io/reference/clientcreatefollowup.md): Used for general messages and clarification responses (type: clarification_response). Create the follow-up first, then upload attachments.
+- [Upload an attachment to a citizen follow-up](https://portalu.readme.io/reference/clientuploadfollowupattachment.md): Follow-up must exist before uploading.
+- [Download submission receipt (PDF)](https://portalu.readme.io/reference/clientdownloadreceipt.md)
