@@ -72,6 +72,14 @@ Requests move through these statuses: `open → in_progress → completed | reje
 
 Task outcomes: `approved`, `rejected`, `clarification_requested`.
 
+## Portal Branding
+
+Each portal supports basic visual branding configured via `PATCH /portals/{portalId}/settings`. The `branding` object currently accepts:
+
+- `primaryColor`: a 6-digit hex color code (e.g. `#1A73E8`) applied to the citizen-facing portal UI. Pass `null` to revert to the platform default.
+
+Branding is returned in `GET /portals/{portalId}/settings` so frontends can apply the correct theme on load. Logo upload and full template management are not yet supported.
+
 ## API Conventions
 
 **Pagination**: Endpoints for users and requests return a paginated envelope `{ data: [], pagination: { page, perPage, total, totalPages } }`. Small, naturally bounded collections (roles, departments, permissions, request types, workflow tasks) return bare arrays. `page` minimum is 1, `perPage` maximum is 100.
