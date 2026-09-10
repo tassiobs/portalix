@@ -2828,6 +2828,16 @@ components:
             type: string
 
     # ── Portal Settings ────────────────────
+    PortalBranding:
+      type: object
+      properties:
+        primaryColor:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          description: Primary brand color as a 6-digit hex code
+          example: "#1A73E8"
+          nullable: true
+
     PortalSettings:
       type: object
       properties:
@@ -2835,6 +2845,11 @@ components:
           type: boolean
           description: When true, citizens may sign up and sign in via magic link
           default: false
+        branding:
+          allOf:
+            - $ref: '#/components/schemas/PortalBranding'
+          nullable: true
+          description: Visual branding applied to the citizen-facing portal
         updatedAt:
           type: string
           format: date-time
@@ -2849,6 +2864,11 @@ components:
       properties:
         magicLinkEnabled:
           type: boolean
+        branding:
+          allOf:
+            - $ref: '#/components/schemas/PortalBranding'
+          nullable: true
+          description: Pass null to remove branding and revert to default
 
     # ── Common ─────────────────────────────
     Pagination:
