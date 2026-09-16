@@ -109,6 +109,12 @@ Append `.md` to any documentation page URL to get its markdown version.
 - [Reset password using email token](https://portalu.readme.io/reference/resetpassword.md)
 - [Accept an org user invitation and set password](https://portalu.readme.io/reference/acceptinvite.md): Exchanges the invitation token (sent via email when an org user is created).
 - [Refresh an org member access token](https://portalu.readme.io/reference/refreshtoken.md): Exchanges a valid refresh token for a new access token and a rotated.
+- [Start MFA enrollment (TOTP)](https://portalu.readme.io/reference/enrollmfa.md): Initiates TOTP enrollment for the current org member. Returns a secret and.
+- [Confirm MFA enrollment with a TOTP code](https://portalu.readme.io/reference/confirmmfaenrollment.md): Verifies the first TOTP code from the authenticator app and activates MFA.
+- [Complete sign-in with MFA code](https://portalu.readme.io/reference/mfachallenge.md): Exchanges an `mfaToken` (from a 202 sign-in response) plus a TOTP code for.
+- [Disable MFA for the current org member](https://portalu.readme.io/reference/disablemfa.md): Removes TOTP enrollment. Requires the current TOTP code to confirm intent.
+- [Verify a pending email change](https://portalu.readme.io/reference/verifyemailchange.md): When an org member changes their email via PATCH /auth/me, a verification.
+- [Request deletion of own org member account (LGPD)](https://portalu.readme.io/reference/requestaccountdeletion.md): Initiates an account deletion request in compliance with LGPD (Brazil's data.
 
 ### Organizations
 
@@ -133,6 +139,7 @@ Append `.md` to any documentation page URL to get its markdown version.
 - [List org roles assigned to a user](https://portalu.readme.io/reference/listorguserroles.md): Requires `org.users.manage`.
 - [Assign an org role to a user](https://portalu.readme.io/reference/assignorgrole.md): Requires `org.users.manage`.
 - [Remove an org role from a user](https://portalu.readme.io/reference/removeorgrole.md): Requires `org.users.manage`.
+- [Unlock a locked org user account](https://portalu.readme.io/reference/unlockorguser.md): Manually releases an account lock caused by too many failed sign-in attempts. Requires `org.users.manage`.
 
 ### Org Roles
 
@@ -243,6 +250,8 @@ Append `.md` to any documentation page URL to get its markdown version.
 - [Request a citizen password reset email](https://portalu.readme.io/reference/clientforgotpassword.md)
 - [Reset citizen password using email token](https://portalu.readme.io/reference/clientresetpassword.md)
 - [Refresh a citizen access token](https://portalu.readme.io/reference/clientrefreshtoken.md): Exchanges a valid refresh token for a new access token and a rotated.
+- [Verify a pending citizen email change](https://portalu.readme.io/reference/clientverifyemailchange.md): When a citizen changes their email via PATCH /portals/{portalId}/client/auth/me,.
+- [Request deletion of citizen account (LGPD)](https://portalu.readme.io/reference/clientrequestaccountdeletion.md): Initiates a citizen account deletion request in compliance with LGPD.
 
 ### Client Sessions
 
