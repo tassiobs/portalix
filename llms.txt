@@ -158,6 +158,11 @@ Append `.md` to any documentation page URL to get its markdown version.
 - [Delete a portal role](https://portalu.readme.io/reference/deleteportalrole.md): Requires `portal.users.manage`.
 - [List available portal-level permissions](https://portalu.readme.io/reference/listportalpermissions.md): Returns the fixed set of permissions assignable to portal-level roles.
 
+### Org Settings
+
+- [Get organization settings](https://portalu.readme.io/reference/getorgsettings.md): Accessible to any authenticated org member.
+- [Update organization settings](https://portalu.readme.io/reference/updateorgsettings.md): Requires `org.portals.manage`.
+
 ### Portal Settings
 
 - [Get portal settings](https://portalu.readme.io/reference/getportalsettings.md): Accessible to any authenticated portal user.
@@ -210,10 +215,11 @@ Append `.md` to any documentation page URL to get its markdown version.
 
 ### Client Auth
 
-- [Citizen self-registration on a portal](https://portalu.readme.io/reference/clientsignup.md)
-- [Citizen sign-in on a portal](https://portalu.readme.io/reference/clientsignin.md)
+- [Citizen self-registration on a portal](https://portalu.readme.io/reference/clientsignup.md): Behavior depends on the organization's `citizenIdentityScope` setting:.
+- [Citizen sign-in on a portal](https://portalu.readme.io/reference/clientsignin.md): Password-based sign-in for citizens.
 - [Request a magic link for citizen sign-up or sign-in](https://portalu.readme.io/reference/clientrequestmagiclink.md): Returns 403 if magic link authentication is disabled in portal settings.
 - [Verify a magic link token](https://portalu.readme.io/reference/clientverifymagiclink.md)
+- [Exchange a cross-portal citizen token (SSO)](https://portalu.readme.io/reference/clientexchangetoken.md): Only available when `citizenIdentityScope` is `org` in organization settings.
 - [Citizen sign-out](https://portalu.readme.io/reference/clientsignout.md)
 - [Get current citizen profile](https://portalu.readme.io/reference/clientgetme.md)
 - [Update citizen profile](https://portalu.readme.io/reference/clientupdateme.md)
