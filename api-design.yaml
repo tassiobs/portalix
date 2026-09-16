@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Client Portal Platform API
-  version: 2.0.0
+  version: 2.0.1
   description: |
     API for the Client Portal Platform. Covers three access contexts:
     - **Organization management**: org members manage portals and internal users
