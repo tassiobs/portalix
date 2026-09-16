@@ -34,14 +34,3 @@ jobs:
             git commit -m "chore: auto-update llms.txt API reference from spec" && \
             git push
 
-  sync-readme:
-    runs-on: ubuntu-latest
-    needs: sync-llms
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Sync OpenAPI spec to ReadMe
-        uses: readmeio/rdme@v10
-        with:
-          rdme: openapi api-design.yaml --key=${{ secrets.README_API_KEY }} --id=${{ secrets.README_API_DEFINITION_ID }}
