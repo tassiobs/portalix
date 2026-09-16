@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Client Portal Platform API
-  version: 2.0.1
+  version: 2.1.0
   description: |
     API for the Client Portal Platform. Covers three access contexts:
     - **Organization management**: org members manage portals and internal users
@@ -17,7 +17,7 @@ info:
     collections (roles, departments, permissions, request types, workflow tasks) return
     bare arrays. This is intentional and consistent.
 
-    **Spec vs URL version**: `info.version` (2.0.0) tracks the document revision.
+    **Spec vs URL version**: `info.version` (2.1.0) tracks the document revision.
     The URL prefix `/api/v1` is the API routing version — these two numbers are
     independent and can diverge as the spec evolves.
 
@@ -42,6 +42,8 @@ tags:
     description: Internal user management within a portal
   - name: Portal Roles
     description: RBAC role management within a portal
+  - name: Org Settings
+    description: Organization-level configuration including citizen identity scope
   - name: Portal Settings
     description: Portal-level configuration
   - name: Departments
@@ -269,6 +271,51 @@ paths:
                 $ref: '#/components/schemas/Organization'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ── Org Settings ─────────────────────────
+  /org/settings:
+    get:
+      tags: [Org Settings]
+      operationId: getOrgSettings
+      summary: Get organization settings
+      description: Accessible to any authenticated org member.
+      responses:
+        '200':
+          description: Organization settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgSettings'
+    patch:
+      tags: [Org Settings]
+      operationId: updateOrgSettings
+      x-required-permissions: [org.portals.manage]
+      summary: Update organization settings
+      description: |
+        Requires org.portals.manage permission.
+        Changing `citizenIdentityScope` is a breaking operation: switching from
+        `portal` to `org` merges citizen identities by email across portals.
+        Switching from `org` back to `portal` is not permitted once citizens
+        have signed up across multiple portals.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgSettingsUpdate'
+      responses:
+        '200':
+          description: Updated organization settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgSettings'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
@@ -1795,6 +1842,14 @@ paths:
       tags: [Client Auth]
       operationId: clientSignUp
       summary: Citizen self-registration on a portal
+      description: |
+        Behavior depends on the organization's `citizenIdentityScope` setting:
+        - **portal** (default): creates a new citizen record scoped to this portal.
+          Returns 422 if the email is already registered on this portal.
+        - **org**: creates a shared org-level citizen record. If the email is already
+          registered on any other portal in the org, returns 409 with
+          `code: citizen_exists_in_org` — the client should redirect to sign-in or
+          use the token-exchange endpoint instead.
       security: []
       requestBody:
         required: true
@@ -1811,6 +1866,14 @@ paths:
                 $ref: '#/components/schemas/CitizenAuthResponse'
         '403':
           description: Password registration is disabled for this portal
+        '409':
+          description: |
+            Email already registered in the organization (only when citizenIdentityScope is org).
+            Error code will be `citizen_exists_in_org`. Client should redirect to sign-in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
@@ -1821,6 +1884,11 @@ paths:
       tags: [Client Auth]
       operationId: clientSignIn
       summary: Citizen sign-in on a portal
+      description: |
+        Password-based sign-in for citizens.
+        When `citizenIdentityScope` is `org`, a citizen registered on any portal in
+        the organization can sign in here — access to this portal is automatically
+        provisioned on first sign-in.
       security: []
       requestBody:
         required: true
@@ -1913,6 +1981,45 @@ paths:
                 $ref: '#/components/schemas/CitizenAuthResponse'
         '401':
           description: Token invalid or expired
+
+  /portals/{portalId}/client/auth/token-exchange:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    post:
+      tags: [Client Auth]
+      operationId: clientExchangeToken
+      summary: Exchange a cross-portal citizen token (SSO)
+      description: |
+        Only available when `citizenIdentityScope` is `org` in organization settings.
+
+        Accepts a valid citizen JWT issued by **any portal in the same organization**
+        and returns a new JWT scoped to the target portal. The citizen does not need
+        to sign in again. If the citizen has never accessed this portal before, access
+        is automatically provisioned on first exchange.
+
+        Returns 403 if `citizenIdentityScope` is `portal`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  description: A valid citizen JWT from any portal in this organization
+      responses:
+        '200':
+          description: New portal-scoped JWT issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitizenAuthResponse'
+        '401':
+          description: Token invalid or expired
+        '403':
+          description: SSO is not enabled for this organization (citizenIdentityScope is portal)
 
   /portals/{portalId}/client/auth/sign-out:
     parameters:
@@ -2373,6 +2480,42 @@ components:
         name:
           type: string
 
+    OrgSettings:
+      type: object
+      properties:
+        citizenIdentityScope:
+          type: string
+          enum: [portal, org]
+          default: portal
+          description: |
+            Controls how citizen identities are managed across portals:
+            - **portal** (default): each portal has an independent citizen registry.
+              Citizens must register separately on each portal.
+            - **org**: citizens share a single identity across all portals in the
+              organization. Sign-up on any portal creates one account; sign-in on
+              any portal works immediately; SSO via token-exchange is enabled.
+            Switching from `org` back to `portal` is blocked once citizens have
+            accessed more than one portal.
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedBy:
+          allOf:
+            - $ref: '#/components/schemas/UserSummary'
+          nullable: true
+
+    OrgSettingsUpdate:
+      type: object
+      properties:
+        citizenIdentityScope:
+          type: string
+          enum: [portal, org]
+          description: |
+            Changing from `portal` to `org` merges existing citizen records by email.
+            Changing from `org` to `portal` is rejected (409) if any citizen has
+            accessed more than one portal.
+
     # ── Portal ─────────────────────────────
     Portal:
       type: object
@@ -2582,7 +2725,12 @@ components:
     Citizen:
       type: object
       required: [id, email, createdAt]
-      description: External user with access to a specific client portal; no RBAC role
+      description: |
+        External user who submits requests through a client portal.
+        When `citizenIdentityScope` is `portal` (default), each portal has its own
+        independent citizen registry. When `citizenIdentityScope` is `org`, the
+        citizen identity is shared across all portals in the organization — one account,
+        one profile, access to any portal without re-registering.
       properties:
         id:
           type: string
@@ -2604,6 +2752,22 @@ components:
           allOf:
             - $ref: '#/components/schemas/Address'
           nullable: true
+        portalAccess:
+          type: array
+          description: |
+            Portals this citizen has access to. Only present when
+            `citizenIdentityScope` is `org`; omitted in portal-scoped mode.
+          items:
+            type: object
+            properties:
+              portalId:
+                type: string
+                format: uuid
+              portalName:
+                type: string
+              firstAccessAt:
+                type: string
+                format: date-time
         createdAt:
           type: string
           format: date-time
@@ -2657,7 +2821,12 @@ components:
       properties:
         token:
           type: string
-          description: Bearer JWT scoped to this portal's client context
+          description: |
+            Bearer JWT scoped to this portal's client context.
+            When `citizenIdentityScope` is `org`, this token can be passed to
+            `POST /portals/{portalId}/client/auth/token-exchange` on any other
+            portal in the organization to obtain a portal-scoped token without
+            re-authenticating.
         citizen:
           $ref: '#/components/schemas/Citizen'
 
