@@ -105,6 +105,10 @@ Append `.md` to any documentation page URL to get its markdown version.
 - [Sign out (invalidate token)](https://portalu.readme.io/reference/signout.md)
 - [Get current org member profile](https://portalu.readme.io/reference/getme.md)
 - [Update own profile](https://portalu.readme.io/reference/updateme.md)
+- [Request a password reset email](https://portalu.readme.io/reference/forgotpassword.md)
+- [Reset password using email token](https://portalu.readme.io/reference/resetpassword.md)
+- [Accept an org user invitation and set password](https://portalu.readme.io/reference/acceptinvite.md): Exchanges the invitation token (sent via email when an org user is created).
+- [Refresh an org member access token](https://portalu.readme.io/reference/refreshtoken.md): Exchanges a valid refresh token for a new access token and a rotated.
 
 ### Organizations
 
@@ -148,6 +152,7 @@ Append `.md` to any documentation page URL to get its markdown version.
 - [List portal role assignments for a user](https://portalu.readme.io/reference/listportaluserroles.md): Requires `portal.users.manage`.
 - [Assign a portal role to a user](https://portalu.readme.io/reference/assignportalrole.md): Assigns a role to the user with optional ABAC scope constraints. Requires `portal.users.manage`.
 - [Remove a portal role from a user](https://portalu.readme.io/reference/removeportalrole.md): Requires `portal.users.manage`.
+- [Get effective permissions for a portal user](https://portalu.readme.io/reference/geteffectivepermissions.md): Returns the resolved permission set for a user after merging all their. Requires `portal.users.manage`.
 
 ### Portal Roles
 
@@ -213,6 +218,18 @@ Append `.md` to any documentation page URL to get its markdown version.
 - [Update a task instance (e.g. reassign)](https://portalu.readme.io/reference/updatetask.md): Requires `portal.requests.manage`.
 - [Mark a task instance as complete](https://portalu.readme.io/reference/completetask.md): Completing a task triggers evaluation of the workflow graph: tasks whose. Requires `portal.requests.manage`.
 
+### Org Sessions
+
+- [List active sessions for the current org member](https://portalu.readme.io/reference/listsessions.md)
+- [Sign out of all devices (revoke all sessions)](https://portalu.readme.io/reference/revokeallsessions.md): Invalidates all active sessions except the current one.
+- [Revoke a specific session](https://portalu.readme.io/reference/revokesession.md)
+
+### Org Invitations
+
+- [List pending org user invitations](https://portalu.readme.io/reference/listinvitations.md): Requires `org.users.manage`.
+- [Resend an invitation email](https://portalu.readme.io/reference/resendinvitation.md): Issues a new invitation token and sends a fresh email. The previous. Requires `org.users.manage`.
+- [Cancel a pending invitation](https://portalu.readme.io/reference/cancelinvitation.md): Revokes the invitation token. The user account is also deactivated if. Requires `org.users.manage`.
+
 ### Client Auth
 
 - [Citizen self-registration on a portal](https://portalu.readme.io/reference/clientsignup.md): Behavior depends on the organization's `citizenIdentityScope` setting:.
@@ -223,6 +240,15 @@ Append `.md` to any documentation page URL to get its markdown version.
 - [Citizen sign-out](https://portalu.readme.io/reference/clientsignout.md)
 - [Get current citizen profile](https://portalu.readme.io/reference/clientgetme.md)
 - [Update citizen profile](https://portalu.readme.io/reference/clientupdateme.md)
+- [Request a citizen password reset email](https://portalu.readme.io/reference/clientforgotpassword.md)
+- [Reset citizen password using email token](https://portalu.readme.io/reference/clientresetpassword.md)
+- [Refresh a citizen access token](https://portalu.readme.io/reference/clientrefreshtoken.md): Exchanges a valid refresh token for a new access token and a rotated.
+
+### Client Sessions
+
+- [List active citizen sessions on this portal](https://portalu.readme.io/reference/clientlistsessions.md)
+- [Sign out of all devices (revoke all citizen sessions)](https://portalu.readme.io/reference/clientrevokeallsessions.md): Invalidates all active sessions except the current one.
+- [Revoke a specific citizen session](https://portalu.readme.io/reference/clientrevokesession.md)
 
 ### Client Requests
 
