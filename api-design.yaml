@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Client Portal Platform API
-  version: 2.1.0
+  version: 2.2.0
   description: |
     API for the Client Portal Platform. Covers three access contexts:
     - **Organization management**: org members manage portals and internal users
@@ -17,7 +17,7 @@ info:
     collections (roles, departments, permissions, request types, workflow tasks) return
     bare arrays. This is intentional and consistent.
 
-    **Spec vs URL version**: `info.version` (2.1.0) tracks the document revision.
+    **Spec vs URL version**: `info.version` (2.2.0) tracks the document revision.
     The URL prefix `/api/v1` is the API routing version — these two numbers are
     independent and can diverge as the spec evolves.
 
@@ -58,8 +58,14 @@ tags:
     description: Request lifecycle — internal user view
   - name: Request Tasks
     description: Task management within a request
+  - name: Org Sessions
+    description: Active session management for org members
+  - name: Org Invitations
+    description: Pending invitation management for org users
   - name: Client Auth
     description: Citizen authentication and profile on a specific portal
+  - name: Client Sessions
+    description: Active session management for citizens
   - name: Client Requests
     description: Request lifecycle — citizen view
   - name: File Uploads
@@ -236,6 +242,231 @@ paths:
                 $ref: '#/components/schemas/OrgUser'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      operationId: forgotPassword
+      summary: Request a password reset email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '204':
+          description: Reset email sent (same response whether the email exists or not)
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      operationId: resetPassword
+      summary: Reset password using email token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token:
+                  type: string
+                  description: Token from the password reset email
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 8
+      responses:
+        '204':
+          description: Password updated; all existing sessions invalidated
+        '401':
+          description: Token invalid or expired
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /auth/accept-invite:
+    post:
+      tags: [Auth]
+      operationId: acceptInvite
+      summary: Accept an org user invitation and set password
+      description: |
+        Exchanges the invitation token (sent via email when an org user is created)
+        for an active account. The invitee sets their password and receives a JWT.
+        Returns 409 if the invitation has already been accepted.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                  description: Invitation token from the email
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                name:
+                  type: string
+                  description: Override the name set by the admin at invite time
+      responses:
+        '200':
+          description: Invitation accepted; account active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Token invalid or expired
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshToken
+      summary: Refresh an org member access token
+      description: |
+        Exchanges a valid refresh token for a new access token and a rotated
+        refresh token. The old refresh token is immediately invalidated.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: New token pair issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Refresh token invalid or expired
+
+  /auth/sessions:
+    get:
+      tags: [Org Sessions]
+      operationId: listSessions
+      summary: List active sessions for the current org member
+      responses:
+        '200':
+          description: Active sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+    delete:
+      tags: [Org Sessions]
+      operationId: revokeAllSessions
+      summary: Sign out of all devices (revoke all sessions)
+      description: Invalidates all active sessions except the current one.
+      responses:
+        '204':
+          description: All other sessions revoked
+
+  /auth/sessions/{sessionId}:
+    parameters:
+      - $ref: '#/components/parameters/sessionId'
+    delete:
+      tags: [Org Sessions]
+      operationId: revokeSession
+      summary: Revoke a specific session
+      responses:
+        '204':
+          description: Session revoked
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Org Invitations ───────────────────────
+  /org/invitations:
+    get:
+      tags: [Org Invitations]
+      operationId: listInvitations
+      x-required-permissions: [org.users.manage]
+      summary: List pending org user invitations
+      description: Requires org.users.manage permission.
+      responses:
+        '200':
+          description: Pending invitations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invitation'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /org/invitations/{invitationId}/resend:
+    parameters:
+      - $ref: '#/components/parameters/invitationId'
+    post:
+      tags: [Org Invitations]
+      operationId: resendInvitation
+      x-required-permissions: [org.users.manage]
+      summary: Resend an invitation email
+      description: |
+        Issues a new invitation token and sends a fresh email. The previous
+        token is invalidated. Requires org.users.manage permission.
+      responses:
+        '204':
+          description: Invitation resent
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Invitation already accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /org/invitations/{invitationId}:
+    parameters:
+      - $ref: '#/components/parameters/invitationId'
+    delete:
+      tags: [Org Invitations]
+      operationId: cancelInvitation
+      x-required-permissions: [org.users.manage]
+      summary: Cancel a pending invitation
+      description: |
+        Revokes the invitation token. The user account is also deactivated if
+        they have not yet accepted. Requires org.users.manage permission.
+      responses:
+        '204':
+          description: Invitation cancelled
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Invitation already accepted; deactivate the user instead
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   # ── Organization ──────────────────────────
   /org:
@@ -922,6 +1153,31 @@ paths:
       responses:
         '204':
           description: Role removed
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /portals/{portalId}/users/{userId}/effective-permissions:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/userId'
+    get:
+      tags: [Portal Users]
+      operationId: getEffectivePermissions
+      x-required-permissions: [portal.users.manage]
+      summary: Get effective permissions for a portal user
+      description: |
+        Returns the resolved permission set for a user after merging all their
+        portal role assignments. Useful for building permission-aware UIs.
+        Requires portal.users.manage permission.
+      responses:
+        '200':
+          description: Effective permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EffectivePermissions'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
@@ -2068,6 +2324,132 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
+  /portals/{portalId}/client/auth/forgot-password:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    post:
+      tags: [Client Auth]
+      operationId: clientForgotPassword
+      summary: Request a citizen password reset email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '204':
+          description: Reset email sent (same response whether the email exists or not)
+
+  /portals/{portalId}/client/auth/reset-password:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    post:
+      tags: [Client Auth]
+      operationId: clientResetPassword
+      summary: Reset citizen password using email token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token:
+                  type: string
+                  description: Token from the password reset email
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 8
+      responses:
+        '204':
+          description: Password updated; all existing sessions invalidated
+        '401':
+          description: Token invalid or expired
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /portals/{portalId}/client/auth/refresh:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    post:
+      tags: [Client Auth]
+      operationId: clientRefreshToken
+      summary: Refresh a citizen access token
+      description: |
+        Exchanges a valid refresh token for a new access token and a rotated
+        refresh token. The old refresh token is immediately invalidated.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: New token pair issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitizenAuthResponse'
+        '401':
+          description: Refresh token invalid or expired
+
+  /portals/{portalId}/client/auth/sessions:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+    get:
+      tags: [Client Sessions]
+      operationId: clientListSessions
+      summary: List active citizen sessions on this portal
+      responses:
+        '200':
+          description: Active sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Client Sessions]
+      operationId: clientRevokeAllSessions
+      summary: Sign out of all devices (revoke all citizen sessions)
+      description: Invalidates all active sessions except the current one.
+      responses:
+        '204':
+          description: All other sessions revoked
+
+  /portals/{portalId}/client/auth/sessions/{sessionId}:
+    parameters:
+      - $ref: '#/components/parameters/portalId'
+      - $ref: '#/components/parameters/sessionId'
+    delete:
+      tags: [Client Sessions]
+      operationId: clientRevokeSession
+      summary: Revoke a specific citizen session
+      responses:
+        '204':
+          description: Session revoked
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   # ── Client Requests ───────────────────────
   /portals/{portalId}/client/request-types:
     parameters:
@@ -2419,6 +2801,20 @@ components:
       schema:
         type: string
         format: uuid
+    sessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    invitationId:
+      name: invitationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
 
   responses:
     Unauthorized:
@@ -2717,9 +3113,87 @@ components:
       properties:
         token:
           type: string
-          description: Bearer JWT for subsequent requests
+          description: Short-lived Bearer JWT for subsequent requests
+        refreshToken:
+          type: string
+          description: Long-lived token used to obtain a new access token via POST /auth/refresh
         user:
           $ref: '#/components/schemas/OrgUser'
+
+    Session:
+      type: object
+      required: [id, createdAt, lastUsedAt, expiresAt, isCurrent]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userAgent:
+          type: string
+          nullable: true
+          description: Browser or client identifier from the User-Agent header at sign-in
+        ipAddress:
+          type: string
+          nullable: true
+          description: IP address at sign-in
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        isCurrent:
+          type: boolean
+          description: True if this is the session making the request
+
+    Invitation:
+      type: object
+      required: [id, email, status, createdAt, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, accepted, expired, cancelled]
+        invitedBy:
+          $ref: '#/components/schemas/UserSummary'
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        acceptedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    EffectivePermissions:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        permissions:
+          type: array
+          description: Deduplicated list of permission keys granted by all the user's portal roles
+          items:
+            type: string
+          example: [portal.requests.view, portal.requests.manage]
+        scopes:
+          type: array
+          description: ABAC scope constraints from each role assignment; empty means no restrictions
+          items:
+            $ref: '#/components/schemas/Scope'
 
     # ── Citizens ───────────────────────────
     Citizen:
@@ -2822,11 +3296,14 @@ components:
         token:
           type: string
           description: |
-            Bearer JWT scoped to this portal's client context.
+            Short-lived Bearer JWT scoped to this portal's client context.
             When `citizenIdentityScope` is `org`, this token can be passed to
             `POST /portals/{portalId}/client/auth/token-exchange` on any other
             portal in the organization to obtain a portal-scoped token without
             re-authenticating.
+        refreshToken:
+          type: string
+          description: Long-lived token used to obtain a new access token via POST /portals/{portalId}/client/auth/refresh
         citizen:
           $ref: '#/components/schemas/Citizen'
 
