@@ -8,6 +8,7 @@ from app.api.v1.routes import (
     org_roles,
     org_settings,
     org_users,
+    requests,
     sessions,
 )
 
@@ -21,3 +22,4 @@ router.include_router(org_roles.router)
 router.include_router(org_permissions.router)
 router.include_router(org_invitations.router)
 router.include_router(sessions.router)
+router.include_router(requests.router)

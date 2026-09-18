@@ -23,6 +23,30 @@ ORG_PERMISSIONS = [
         "description": "Create/update/archive portals",
         "level": "org",
     },
+    {
+        "key": "requests:read",
+        "label": "View Requests",
+        "description": "View requests in the organization",
+        "level": "org",
+    },
+    {
+        "key": "requests:create",
+        "label": "Create Requests",
+        "description": "Create new requests in the organization",
+        "level": "org",
+    },
+    {
+        "key": "requests:update",
+        "label": "Update Requests",
+        "description": "Update title or status of existing requests",
+        "level": "org",
+    },
+    {
+        "key": "requests:delete",
+        "label": "Delete Requests",
+        "description": "Delete requests from the organization",
+        "level": "org",
+    },
 ]
 
 VALID_PERMISSION_KEYS = {p["key"] for p in ORG_PERMISSIONS}
