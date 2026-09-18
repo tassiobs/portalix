@@ -13,7 +13,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Client Portal Platform API",
+    title="Portalu API",
     version="2.3.0",
     lifespan=lifespan,
 )
