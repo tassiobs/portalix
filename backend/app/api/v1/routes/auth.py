@@ -40,15 +40,12 @@ async def sign_up(
     return await auth_service.sign_up(db, redis, data)
 
 
-@router.post("/verify-email", response_model=AuthResponse)
+@router.post("/verify-email")
 async def verify_email(
     data: VerifyEmailRequest,
-    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    redis: Annotated[aioredis.Redis, Depends(get_redis)],
 ):
-    user_agent, ip = _get_client_info(request)
-    return await auth_service.verify_email(db, redis, data.token, user_agent, ip)
+    return await auth_service.verify_email(db, data.token)
 
 
 @router.post("/resend-verification")

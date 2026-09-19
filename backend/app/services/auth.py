@@ -106,10 +106,15 @@ def _user_to_schema(user: OrgUser) -> UserOut:
 
 
 async def sign_up(db: AsyncSession, redis: aioredis.Redis, data: SignUpRequest) -> SignUpResponse:
-    # Check email uniqueness
-    existing = await db.execute(select(OrgUser).where(OrgUser.email == data.email))
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    # Check email uniqueness — allow re-registration if previous account was never verified
+    existing_result = await db.execute(select(OrgUser).where(OrgUser.email == data.email))
+    existing = existing_result.scalar_one_or_none()
+    if existing:
+        if existing.email_verified:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        # Orphaned unverified account — delete it and allow re-registration
+        await db.delete(existing)
+        await db.flush()
 
     # 1. Create Organization
     org = Organization(name=data.org_name)
@@ -165,13 +170,7 @@ async def sign_up(db: AsyncSession, redis: aioredis.Redis, data: SignUpRequest) 
     )
 
 
-async def verify_email(
-    db: AsyncSession,
-    redis: aioredis.Redis,
-    token: str,
-    user_agent: str | None = None,
-    ip: str | None = None,
-) -> AuthResponse:
+async def verify_email(db: AsyncSession, token: str) -> dict:
     result = await db.execute(
         select(EmailVerificationToken).where(EmailVerificationToken.token == token)
     )
@@ -190,7 +189,7 @@ async def verify_email(
     user.email_verified = True
     await db.commit()
 
-    return await _build_auth_response(db, redis, user, user_agent, ip)
+    return {"message": "Email verified. You can now sign in."}
 
 
 async def resend_verification(db: AsyncSession, email: str) -> dict:
