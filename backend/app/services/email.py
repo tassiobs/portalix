@@ -14,8 +14,8 @@ def _send(to: str, subject: str, html: str) -> None:
             "subject": subject,
             "html": html,
         })
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[email] failed to send to {to}: {e}")
 
 
 def send_verification_email(to: str, token: str) -> None:
