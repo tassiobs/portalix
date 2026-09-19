@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     ENVIRONMENT: str = "development"
+    RESEND_API_KEY: str = ""
+    FRONTEND_URL: str = "http://localhost:3006"
+    EMAIL_FROM: str = "hello@tassiobatista.com"
 
     class Config:
         env_file = ".env"

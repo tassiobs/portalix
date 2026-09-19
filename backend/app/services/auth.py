@@ -26,6 +26,7 @@ from app.schemas.auth import (
     SignUpResponse,
 )
 from app.schemas.user import UserOut
+from app.services.email import send_invite_email, send_password_reset_email, send_verification_email
 from app.services.rbac import ORG_PERMISSIONS, build_role_out
 
 
@@ -159,13 +160,15 @@ async def sign_up(db: AsyncSession, redis: aioredis.Redis, data: SignUpRequest) 
     db.add(ev_token)
     await db.commit()
 
+    send_verification_email(data.email, token_value)
+
     # Load user with roles for response
     user_with_roles = await _load_user_with_roles(db, user.id)
     user_out = _user_to_schema(user_with_roles)
 
     return SignUpResponse(
         user=user_out,
-        message="Account created. Please verify your email.",
+        message="Account created. Please check your email to verify your account.",
         verification_token=token_value,
     )
 
@@ -208,6 +211,8 @@ async def resend_verification(db: AsyncSession, email: str) -> dict:
     )
     db.add(ev_token)
     await db.commit()
+
+    send_verification_email(user.email, token_value)
 
     return {"message": "Verification token generated.", "verification_token": token_value}
 
@@ -329,6 +334,8 @@ async def forgot_password(db: AsyncSession, email: str) -> ForgotPasswordRespons
     )
     db.add(pr_token)
     await db.commit()
+
+    send_password_reset_email(user.email, token_value)
 
     return ForgotPasswordResponse(reset_token=token_value)
 

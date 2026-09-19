@@ -7,8 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.security import generate_secure_token
+from app.db.models.org import Organization
 from app.db.models.rbac import OrgRole, OrgUserRole
 from app.db.models.user import InvitationToken, OrgUser
+from app.services.email import send_invite_email
 from app.schemas.user import (
     InvitationOut,
     OrgUserCreate,
@@ -107,6 +109,10 @@ async def create_user(
     )
     db.add(inv_token)
     await db.commit()
+
+    org_result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = org_result.scalar_one()
+    send_invite_email(data.email, token_value, org.name)
 
     user_loaded = await _load_user(db, org_id, user.id)
     user_out = _user_to_out(user_loaded)
@@ -223,6 +229,10 @@ async def resend_invitation(
     inv.token = new_token
     inv.expires_at = datetime.utcnow() + timedelta(days=7)
     await db.commit()
+
+    org_result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = org_result.scalar_one()
+    send_invite_email(inv.email, new_token, org.name)
 
     return {"invitation_token": new_token}
 
