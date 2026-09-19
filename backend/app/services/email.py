@@ -6,13 +6,16 @@ from app.core.config import settings
 def _send(to: str, subject: str, html: str) -> None:
     if not settings.RESEND_API_KEY:
         return
-    resend.api_key = settings.RESEND_API_KEY
-    resend.Emails.send({
-        "from": settings.EMAIL_FROM,
-        "to": to,
-        "subject": subject,
-        "html": html,
-    })
+    try:
+        resend.api_key = settings.RESEND_API_KEY
+        resend.Emails.send({
+            "from": settings.EMAIL_FROM,
+            "to": to,
+            "subject": subject,
+            "html": html,
+        })
+    except Exception:
+        pass
 
 
 def send_verification_email(to: str, token: str) -> None:
