@@ -25,6 +25,9 @@ async def setup_test_db():
     import app.db.models.rbac  # noqa: F401
     import app.db.models.user  # noqa: F401
     import app.db.models.request  # noqa: F401
+    import app.db.models.portal  # noqa: F401
+    import app.db.models.citizen  # noqa: F401
+    import app.db.models.portal_request  # noqa: F401
 
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

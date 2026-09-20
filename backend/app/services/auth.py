@@ -26,6 +26,7 @@ from app.schemas.auth import (
     SignUpResponse,
 )
 from app.schemas.user import UserOut
+from app.core.slugify import slugify
 from app.services.email import send_invite_email, send_password_reset_email, send_verification_email
 from app.services.rbac import ORG_PERMISSIONS, build_role_out
 
@@ -118,7 +119,13 @@ async def sign_up(db: AsyncSession, redis: aioredis.Redis, data: SignUpRequest) 
         await db.flush()
 
     # 1. Create Organization
-    org = Organization(name=data.org_name)
+    base_slug = slugify(data.org_name)
+    slug = base_slug
+    suffix = 1
+    while (await db.execute(select(Organization).where(Organization.slug == slug))).scalar_one_or_none():
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
+    org = Organization(name=data.org_name, slug=slug)
     db.add(org)
     await db.flush()
 

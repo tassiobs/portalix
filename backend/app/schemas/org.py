@@ -11,6 +11,7 @@ class OrgOut(BaseModel):
 
     id: UUID
     name: str
+    slug: str
     created_at: datetime
 
 

@@ -2,12 +2,14 @@ from fastapi import APIRouter
 
 from app.api.v1.routes import (
     auth,
+    citizen,
     org,
     org_invitations,
     org_permissions,
     org_roles,
     org_settings,
     org_users,
+    portals,
     requests,
     sessions,
 )
@@ -23,3 +25,5 @@ router.include_router(org_permissions.router)
 router.include_router(org_invitations.router)
 router.include_router(sessions.router)
 router.include_router(requests.router)
+router.include_router(portals.router)
+router.include_router(citizen.router)

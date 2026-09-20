@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.security import decode_access_token
 from app.db.base import AsyncSessionLocal
+from app.db.models.citizen import Citizen
 from app.db.models.rbac import OrgRolePermission, OrgUserRole
 from app.db.models.user import OrgUser
 
@@ -73,6 +74,30 @@ async def get_current_active_user(
     if user.status != "active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is not active")
     return user
+
+
+async def get_current_citizen(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Citizen:
+    token = credentials.credentials
+    payload = decode_access_token(token)
+    if not payload or payload.get("type") != "citizen":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    citizen_id: str | None = payload.get("sub")
+    if not citizen_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+
+    result = await db.execute(select(Citizen).where(Citizen.id == UUID(citizen_id)))
+    citizen = result.scalar_one_or_none()
+    if not citizen:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Citizen not found")
+
+    if citizen.status != "active":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account deactivated")
+
+    return citizen
 
 
 def require_permissions(*perms: str):
