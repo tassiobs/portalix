@@ -22,7 +22,7 @@ info:
     independent and can diverge as the spec evolves.
 
 servers:
-  - url: /api/v1
+  - url: https://portalu-production.up.railway.app/api/v1
 
 security:
   - bearerAuth: []
