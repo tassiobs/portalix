@@ -1,12 +1,12 @@
 ---
 title: "Flow 1 — Org Setup"
-excerpt: Sign up, verify your email, create a portal, a department, and your first request type.
+excerpt: Sign up, verify your email, and create your first portal with request types.
 hidden: false
 ---
 
 **Who runs this**: the person who created the org (Org Super Admin).
 
-**What it covers**: sign up → verify email → create a portal → create a department → create a request type with fields.
+**What it covers**: sign up → verify email → sign in → create a portal → create request types.
 
 > **Before you start**: All endpoints (except those marked `security: []`) require a Bearer JWT in the `Authorization` header. This flow shows you where to get one.
 
@@ -15,50 +15,102 @@ hidden: false
 ### 1. Sign up
 
 ```http
-POST /api/v1/auth/sign-up
+POST /auth/sign-up
 Content-Type: application/json
 
 {
+  "org_name": "Prefeitura de Maceió",
+  "name": "Tassio",
   "email": "tassio@prefeitura.gov.br",
-  "password": "supersecret123",
-  "name": "Tassio"
+  "password": "supersecret123"
 }
 ```
 
 ```json
 {
-  "user": { "id": "a1b2c3...", "email": "tassio@prefeitura.gov.br", "emailVerified": false },
-  "message": "Verification email sent. Please check your inbox."
+  "user": {
+    "id": "a1b2c3...",
+    "email": "tassio@prefeitura.gov.br",
+    "email_verified": false,
+    "status": "active"
+  },
+  "message": "Account created. Please check your email to verify your account.",
+  "verification_token": "<token>"
 }
 ```
 
 A verification email is sent immediately. The account cannot sign in until the email is verified.
 
+> **During development**: the `verification_token` is also returned in the response body so you can verify without email access.
+
+---
+
 ### 2. Verify email
 
 ```http
-POST /api/v1/auth/verify-email
+POST /auth/verify-email
 Content-Type: application/json
 
 {
-  "token": "<token from email>"
+  "token": "<verification_token from step 1>"
 }
 ```
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiJ9...",
-  "user": { "id": "a1b2c3...", "email": "tassio@prefeitura.gov.br", "emailVerified": true }
+  "message": "Email verified. You can now sign in."
 }
 ```
 
-Store the `token` — every subsequent request needs `Authorization: Bearer <token>`.
+---
 
-### 3. Create a portal
+### 3. Sign in
 
 ```http
-POST /api/v1/portals
-Authorization: Bearer <token>
+POST /auth/sign-in
+Content-Type: application/json
+
+{
+  "email": "tassio@prefeitura.gov.br",
+  "password": "supersecret123"
+}
+```
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiJ9...",
+  "refresh_token": "550e8400...",
+  "token_type": "bearer",
+  "user": {
+    "id": "a1b2c3...",
+    "email": "tassio@prefeitura.gov.br",
+    "email_verified": true,
+    "status": "active",
+    "org_roles": [{ "name": "Super Admin", "permissions": ["org.users.manage", ...] }]
+  }
+}
+```
+
+Store the `access_token` — every subsequent request needs `Authorization: Bearer <access_token>`.
+
+When the access token expires, use the refresh token:
+
+```http
+POST /auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "<refresh_token>"
+}
+```
+
+---
+
+### 4. Create a portal
+
+```http
+POST /org/portals
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
@@ -70,74 +122,50 @@ Content-Type: application/json
 ```json
 {
   "id": "p9q8r7...",
+  "org_id": "o1o2o3...",
   "name": "Licenciamento Ambiental",
-  "status": "active",
-  "clientDomain": "licenciamento.portalu.io",
-  "adminDomain": "admin.licenciamento.portalu.io",
-  "createdAt": "2026-09-08T14:00:00Z"
+  "slug": "licenciamento-ambiental",
+  "description": "Portal de solicitações de licença ambiental",
+  "domain": null,
+  "created_at": "2026-09-21T14:00:00Z"
 }
 ```
 
-Note the `id` — you'll use it as `{portalId}` in every subsequent portal-scoped call.
+Note the `id` and `slug` — you'll use `id` for admin API calls and `slug` for citizen-facing URLs.
 
-### 4. Create a department
+The citizen portal will be accessible at:
+```
+/{org-slug}/{portal-slug}
+```
+
+---
+
+### 5. Create request types
+
+Request types define what citizens can submit on this portal.
 
 ```http
-POST /api/v1/portals/p9q8r7.../departments
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "Análise Técnica"
-}
-```
-
-```json
-{
-  "id": "d1e2f3...",
-  "name": "Análise Técnica",
-  "createdAt": "2026-09-08T14:01:00Z"
-}
-```
-
-### 5. Create a request type
-
-```http
-POST /api/v1/portals/p9q8r7.../request-types
-Authorization: Bearer <token>
+POST /org/portals/p9q8r7.../request-types
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
   "name": "Licença de Instalação",
-  "departmentId": "d1e2f3...",
-  "status": "active",
-  "sla": { "durationHours": 72 },
-  "fields": [
-    { "name": "Razão Social", "type": "text", "required": true, "order": 1 },
-    { "name": "CNPJ", "type": "text", "required": true, "order": 2 },
-    { "name": "Planta Baixa", "type": "file_upload", "required": true, "order": 3 },
-    { "name": "Tipo de Atividade", "type": "single_dropdown", "required": true, "order": 4,
-      "options": [
-        { "label": "Industrial", "value": "industrial" },
-        { "label": "Comercial", "value": "comercial" }
-      ]
-    }
-  ]
+  "description": "Solicitação de licença para instalação de estabelecimento"
 }
 ```
 
 ```json
 {
   "id": "rt1rt2...",
+  "portal_id": "p9q8r7...",
   "name": "Licença de Instalação",
-  "status": "active",
-  "department": { "id": "d1e2f3...", "name": "Análise Técnica" },
-  "sla": { "durationHours": 72 },
-  "fields": [...]
+  "description": "Solicitação de licença para instalação de estabelecimento",
+  "created_at": "2026-09-21T14:01:00Z"
 }
 ```
 
-The portal is now ready to receive citizen requests.
+Create as many request types as needed. Citizens will choose from this list when submitting a request.
 
 ---
 

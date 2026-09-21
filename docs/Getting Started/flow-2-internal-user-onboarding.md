@@ -1,20 +1,20 @@
 ---
 title: "Flow 2 — Internal User Onboarding"
-excerpt: Add an org user, grant them portal access, and assign a role with an ABAC scope.
+excerpt: Invite an org user, assign an org role, then grant portal access with a portal role.
 hidden: false
 ---
 
-**Who runs this**: an org admin with `org.users.manage` and `portal.users.manage` permissions.
+**Who runs this**: the Org Super Admin (or any user with `org.users.manage`).
 
-**What it covers**: add an org user → add them to a portal → assign a role with an ABAC scope.
+**What it covers**: invite a user → assign an org role → add them to a portal with a portal role.
 
 ---
 
-### 1. Add an org user
+### 1. Invite a user to the org
 
 ```http
-POST /api/v1/org/users
-Authorization: Bearer <token>
+POST /org/users
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
@@ -28,61 +28,84 @@ Content-Type: application/json
   "id": "u5v6w7...",
   "name": "Ana Lima",
   "email": "ana@prefeitura.gov.br",
+  "email_verified": false,
   "status": "active",
-  "emailVerified": false
+  "org_roles": [],
+  "created_at": "2026-09-21T14:10:00Z",
+  "invitation_token": "<token>"
 }
 ```
 
-An invitation email is sent to Ana. She sets her password via the link.
+An invitation email is sent to Ana with a link to set her password. The `invitation_token` is also returned in the response body for development convenience.
 
-### 2. Add her to a portal
+> **During development**: use `POST /auth/accept-invite` with `{ "token": "<invitation_token>", "password": "..." }` to accept the invite without email access.
+
+---
+
+### 2. Assign an org-level role
+
+Org roles control what Ana can do at the organisation level (manage users, settings, etc.).
+
+First, list available org roles:
 
 ```http
-POST /api/v1/portals/p9q8r7.../users
-Authorization: Bearer <token>
+GET /org/roles
+Authorization: Bearer <access_token>
+```
+
+Then assign the role:
+
+```http
+POST /org/users/u5v6w7.../roles
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
-  "userId": "u5v6w7..."
+  "role_id": "<role-id>"
 }
+```
+
+Returns `204 No Content` on success.
+
+---
+
+### 3. Add her to a portal
+
+Portal access is separate from org access. Get the portal roles first:
+
+```http
+GET /org/portals/p9q8r7.../roles
+Authorization: Bearer <access_token>
 ```
 
 ```json
-{
-  "id": "u5v6w7...",
-  "email": "ana@prefeitura.gov.br",
-  "status": "active",
-  "roleAssignments": [],
-  "addedAt": "2026-09-08T14:10:00Z"
-}
+[
+  {
+    "id": "role-abc...",
+    "portal_id": "p9q8r7...",
+    "name": "Portal Super Admin",
+    "description": null,
+    "permissions": ["portal.requests:read", "portal.requests:update", "portal.request_types:manage", "portal.users:manage", "portal.settings:manage"],
+    "is_default": true,
+    "created_at": "2026-09-21T14:01:00Z"
+  }
+]
 ```
 
-### 3. Assign a portal role with an ABAC scope
-
-First, get the available roles to find the right `roleId`:
+Then assign Ana to the portal with a role:
 
 ```http
-GET /api/v1/portals/p9q8r7.../roles
-Authorization: Bearer <token>
-```
-
-Then assign the role, scoped to Ana's department only:
-
-```http
-POST /api/v1/portals/p9q8r7.../users/u5v6w7.../roles
-Authorization: Bearer <token>
+POST /org/portals/p9q8r7.../users
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
-  "roleId": "role-analyst-id...",
-  "scope": {
-    "departmentIds": ["d1e2f3..."],
-    "onlyAssignedToSelf": false
-  }
+  "user_id": "u5v6w7...",
+  "role_id": "role-abc..."
 }
 ```
 
-Ana can now access the portal, but only sees request types, requests, and tasks belonging to the `Análise Técnica` department.
+Returns `204 No Content`. Ana can now access this portal and act according to her assigned portal role's permissions.
 
 ---
 
