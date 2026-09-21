@@ -93,8 +93,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password]
+              required: [email, password, org_name]
               properties:
+                org_name:
+                  type: string
+                  description: Name of the organization to create
                 email:
                   type: string
                   format: email
