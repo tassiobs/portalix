@@ -76,6 +76,7 @@ def _build_portal_role_out(role: PortalRole) -> PortalRoleOut:
         description=role.description,
         permissions=[p.permission for p in role.permissions],
         is_default=role.is_default,
+        level="portal",
         created_at=role.created_at,
     )
 

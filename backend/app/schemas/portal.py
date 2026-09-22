@@ -47,6 +47,7 @@ class PortalRoleOut(BaseModel):
     description: str | None
     permissions: list[str]
     is_default: bool
+    level: str = "portal"
     created_at: datetime
 
     model_config = {"from_attributes": True}
