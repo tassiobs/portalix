@@ -26,6 +26,39 @@ from app.schemas.portal import (
 )
 
 
+PORTAL_PERMISSIONS = [
+    {
+        "key": "portal.requests:read",
+        "label": "View Requests",
+        "description": "View requests submitted on this portal",
+        "level": "portal",
+    },
+    {
+        "key": "portal.requests:update",
+        "label": "Update Requests",
+        "description": "Update status or title of requests on this portal",
+        "level": "portal",
+    },
+    {
+        "key": "portal.request_types:manage",
+        "label": "Manage Request Types",
+        "description": "Create, update, and delete request types on this portal",
+        "level": "portal",
+    },
+    {
+        "key": "portal.users:manage",
+        "label": "Manage Portal Users",
+        "description": "Add/remove users and assign portal roles",
+        "level": "portal",
+    },
+    {
+        "key": "portal.settings:manage",
+        "label": "Manage Portal Settings",
+        "description": "Update portal name, description, and domain",
+        "level": "portal",
+    },
+]
+
 PORTAL_SUPER_ADMIN_PERMISSIONS = [
     "portal.requests:read",
     "portal.requests:update",

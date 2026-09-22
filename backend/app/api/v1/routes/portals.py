@@ -21,8 +21,16 @@ from app.schemas.portal import (
     RequestUpdate,
 )
 from app.services import portal as portal_service
+from app.services.portal import PORTAL_PERMISSIONS
 
 router = APIRouter(prefix="/org/portals", tags=["portals"])
+
+
+@router.get("/permissions")
+async def list_portal_permissions(
+    current_user: Annotated[OrgUser, Depends(get_current_active_user)],
+):
+    return {"data": PORTAL_PERMISSIONS}
 
 
 @router.get("", response_model=list[PortalOut])
