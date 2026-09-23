@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     RESEND_API_KEY: str = ""
     FRONTEND_URL: str = "http://localhost:3006"
-    EMAIL_FROM: str = "hello@tassiobatista.com"
+    EMAIL_FROM: str = "hello@vocabranch.com"
 
     class Config:
         env_file = ".env"
