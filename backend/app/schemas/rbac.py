@@ -13,6 +13,8 @@ class RoleOut(BaseModel):
     level: str = "org"
     permissions: list[str]
     is_default: bool
+    portal_id: UUID | None = None
+    portal_name: str | None = None
     created_at: datetime
 
 

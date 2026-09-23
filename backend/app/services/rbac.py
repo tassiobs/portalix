@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.db.models.portal import Portal, PortalUserRole
 from app.db.models.rbac import OrgRole, OrgRolePermission, OrgUserRole
 from app.db.models.user import OrgUser
 from app.schemas.rbac import RoleCreate, RoleOut, RoleUpdate
@@ -201,13 +202,31 @@ async def delete_role(db: AsyncSession, org_id: uuid.UUID, role_id: uuid.UUID) -
 
 
 async def list_user_roles(db: AsyncSession, user_id: uuid.UUID) -> list[RoleOut]:
-    result = await db.execute(
+    # Org-level assignments
+    org_result = await db.execute(
         select(OrgUserRole)
         .where(OrgUserRole.user_id == user_id)
         .options(selectinload(OrgUserRole.role).selectinload(OrgRole.permissions))
     )
-    user_roles = result.scalars().all()
-    return [build_role_out(ur.role) for ur in user_roles]
+    org_assignments = [build_role_out(ur.role) for ur in org_result.scalars().all()]
+
+    # Portal-level assignments
+    portal_result = await db.execute(
+        select(PortalUserRole)
+        .where(PortalUserRole.user_id == user_id)
+        .options(
+            selectinload(PortalUserRole.role).selectinload(OrgRole.permissions),
+            selectinload(PortalUserRole.portal),
+        )
+    )
+    portal_assignments = []
+    for pur in portal_result.scalars().all():
+        role_out = build_role_out(pur.role)
+        role_out.portal_id = pur.portal_id
+        role_out.portal_name = pur.portal.name if pur.portal else None
+        portal_assignments.append(role_out)
+
+    return org_assignments + portal_assignments
 
 
 async def assign_role(
