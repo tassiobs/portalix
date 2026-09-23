@@ -104,6 +104,7 @@ async def create_user(
 
         if existing_inv:
             existing_inv.token = token_value
+            existing_inv.status = "pending"
             existing_inv.expires_at = datetime.utcnow() + timedelta(days=7)
         else:
             db.add(InvitationToken(
@@ -112,6 +113,7 @@ async def create_user(
                 email=data.email,
                 name=data.name,
                 token=token_value,
+                status="pending",
                 invited_by_id=invited_by.id,
                 expires_at=datetime.utcnow() + timedelta(days=7),
             ))
@@ -140,6 +142,7 @@ async def create_user(
         email=data.email,
         name=data.name,
         token=token_value,
+        status="pending",
         invited_by_id=invited_by.id,
         expires_at=datetime.utcnow() + timedelta(days=7),
     )
@@ -263,6 +266,7 @@ async def resend_invitation(
 
     new_token = generate_secure_token()
     inv.token = new_token
+    inv.status = "pending"
     inv.expires_at = datetime.utcnow() + timedelta(days=7)
     await db.commit()
 

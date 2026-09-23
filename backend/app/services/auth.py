@@ -381,8 +381,10 @@ async def accept_invite(
 
     if not inv_token:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid invitation token")
+    if inv_token.status == "accepted":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invitation already accepted")
     if inv_token.status != "pending":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invitation is not pending")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invitation is no longer valid")
     if inv_token.expires_at < datetime.utcnow():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invitation expired")
 
