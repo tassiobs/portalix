@@ -83,9 +83,45 @@ async def create_user(
     data: OrgUserCreate,
     invited_by: OrgUser,
 ) -> OrgUserCreateResponse:
-    existing = await db.execute(select(OrgUser).where(OrgUser.email == data.email))
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    existing_user = (await db.execute(
+        select(OrgUser).where(OrgUser.email == data.email)
+    )).scalar_one_or_none()
+
+    if existing_user:
+        # Allow re-invite if the user belongs to this org and never accepted
+        if existing_user.org_id != org_id or existing_user.hashed_password is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+
+        # Refresh or create a pending invitation token
+        existing_inv = (await db.execute(
+            select(InvitationToken)
+            .where(InvitationToken.user_id == existing_user.id, InvitationToken.status == "pending")
+        )).scalar_one_or_none()
+
+        org_result = await db.execute(select(Organization).where(Organization.id == org_id))
+        org = org_result.scalar_one()
+        token_value = generate_secure_token()
+
+        if existing_inv:
+            existing_inv.token = token_value
+            existing_inv.expires_at = datetime.utcnow() + timedelta(days=7)
+        else:
+            db.add(InvitationToken(
+                user_id=existing_user.id,
+                org_id=org_id,
+                email=data.email,
+                name=data.name,
+                token=token_value,
+                invited_by_id=invited_by.id,
+                expires_at=datetime.utcnow() + timedelta(days=7),
+            ))
+
+        await db.commit()
+        send_invite_email(data.email, token_value, org.name)
+
+        user_loaded = await _load_user(db, org_id, existing_user.id)
+        user_out = _user_to_out(user_loaded)
+        return OrgUserCreateResponse(**user_out.model_dump(), invitation_token=token_value)
 
     user = OrgUser(
         org_id=org_id,
