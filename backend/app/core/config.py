@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     ENVIRONMENT: str = "development"
     RESEND_API_KEY: str = ""
-    FRONTEND_URL: str = "http://localhost:3006"
+    FRONTEND_URL: str = "https://portalu-fe.vercel.app"
     EMAIL_FROM: str = "hello@vocabranch.com"
 
     class Config:
