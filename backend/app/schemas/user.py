@@ -23,6 +23,7 @@ class UserOut(BaseModel):
     email_verified: bool
     status: str
     org_roles: list[RoleOut] = []
+    portal_roles: list[RoleOut] = []
     created_at: datetime
 
 
