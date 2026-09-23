@@ -12,7 +12,8 @@ from app.core.config import settings
 from app.core.security import decode_access_token
 from app.db.base import AsyncSessionLocal
 from app.db.models.citizen import Citizen
-from app.db.models.rbac import OrgRolePermission, OrgUserRole
+from app.db.models.portal import PortalUserRole
+from app.db.models.rbac import OrgRole, OrgRolePermission, OrgUserRole
 from app.db.models.user import OrgUser
 
 bearer_scheme = HTTPBearer()
@@ -101,7 +102,7 @@ async def get_current_citizen(
 
 
 def require_permissions(*perms: str):
-    """Returns a dependency that checks the current user has at least one of the given permissions."""
+    """Returns a dependency that checks the current user has at least one of the given org-level permissions."""
 
     async def _dependency(
         user: Annotated[OrgUser, Depends(get_current_active_user)],
@@ -119,6 +120,52 @@ def require_permissions(*perms: str):
         found = result.scalars().first()
         if not found:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        return user
+
+    return _dependency
+
+
+def require_portal_permissions(*perms: str):
+    """Returns a dependency that checks the current user has at least one of the given portal-level permissions.
+
+    Org super admins and users with org.users.manage bypass portal checks.
+    Otherwise the user must have a PortalUserRole on the given portal whose
+    role includes at least one of the required permissions.
+    """
+
+    async def _dependency(
+        portal_id: UUID,
+        user: Annotated[OrgUser, Depends(get_current_active_user)],
+        db: Annotated[AsyncSession, Depends(get_db)],
+    ) -> OrgUser:
+        if user.is_super_admin:
+            return user
+
+        # Org admins bypass portal permission checks
+        org_perm = await db.execute(
+            select(OrgRolePermission)
+            .join(OrgUserRole, OrgUserRole.role_id == OrgRolePermission.role_id)
+            .where(
+                OrgUserRole.user_id == user.id,
+                OrgRolePermission.permission.in_(["org.users.manage", "org.portals.manage"]),
+            )
+        )
+        if org_perm.scalars().first():
+            return user
+
+        # Check portal-level role permission
+        result = await db.execute(
+            select(OrgRolePermission)
+            .join(OrgRole, OrgRole.id == OrgRolePermission.role_id)
+            .join(PortalUserRole, PortalUserRole.role_id == OrgRole.id)
+            .where(
+                PortalUserRole.user_id == user.id,
+                PortalUserRole.portal_id == portal_id,
+                OrgRolePermission.permission.in_(perms),
+            )
+        )
+        if not result.scalars().first():
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient portal permissions")
         return user
 
     return _dependency

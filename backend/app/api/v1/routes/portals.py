@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_active_user, get_db, require_permissions
+from app.core.dependencies import get_current_active_user, get_db, require_permissions, require_portal_permissions
 from app.db.models.user import OrgUser
 from app.schemas.portal import (
     AssignPortalUserRequest,
@@ -51,7 +51,7 @@ async def create_portal(
 async def update_portal(
     portal_id: uuid.UUID,
     data: PortalUpdate,
-    current_user: Annotated[OrgUser, Depends(require_permissions("org.users.manage"))],
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.settings:manage"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await portal_service.update_portal(db, current_user.org_id, portal_id, data)
@@ -72,7 +72,7 @@ async def delete_portal(
 async def assign_portal_user(
     portal_id: uuid.UUID,
     data: AssignPortalUserRequest,
-    current_user: Annotated[OrgUser, Depends(require_permissions("org.users.manage"))],
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.users:manage"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await portal_service.assign_portal_user(db, current_user.org_id, portal_id, data)
@@ -82,7 +82,7 @@ async def assign_portal_user(
 async def remove_portal_user(
     portal_id: uuid.UUID,
     user_id: uuid.UUID,
-    current_user: Annotated[OrgUser, Depends(require_permissions("org.users.manage"))],
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.users:manage"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await portal_service.remove_portal_user(db, current_user.org_id, portal_id, user_id)
@@ -93,7 +93,7 @@ async def remove_portal_user(
 @router.get("/{portal_id}/request-types", response_model=list[RequestTypeOut])
 async def list_request_types(
     portal_id: uuid.UUID,
-    current_user: Annotated[OrgUser, Depends(get_current_active_user)],
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.request_types:manage"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await portal_service.list_request_types(db, portal_id)
@@ -103,7 +103,7 @@ async def list_request_types(
 async def create_request_type(
     portal_id: uuid.UUID,
     data: RequestTypeCreate,
-    current_user: Annotated[OrgUser, Depends(require_permissions("org.users.manage"))],
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.request_types:manage"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await portal_service.create_request_type(db, current_user.org_id, portal_id, data)
@@ -114,7 +114,7 @@ async def update_request_type(
     portal_id: uuid.UUID,
     rt_id: uuid.UUID,
     data: RequestTypeUpdate,
-    current_user: Annotated[OrgUser, Depends(require_permissions("org.users.manage"))],
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.request_types:manage"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await portal_service.update_request_type(db, current_user.org_id, portal_id, rt_id, data)
@@ -124,7 +124,7 @@ async def update_request_type(
 async def delete_request_type(
     portal_id: uuid.UUID,
     rt_id: uuid.UUID,
-    current_user: Annotated[OrgUser, Depends(require_permissions("org.users.manage"))],
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.request_types:manage"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await portal_service.delete_request_type(db, current_user.org_id, portal_id, rt_id)
@@ -135,7 +135,7 @@ async def delete_request_type(
 @router.get("/{portal_id}/requests", response_model=list[RequestOut])
 async def list_portal_requests(
     portal_id: uuid.UUID,
-    current_user: Annotated[OrgUser, Depends(get_current_active_user)],
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await portal_service.list_portal_requests(db, current_user.org_id, portal_id)
@@ -146,7 +146,7 @@ async def update_portal_request(
     portal_id: uuid.UUID,
     request_id: uuid.UUID,
     data: RequestUpdate,
-    current_user: Annotated[OrgUser, Depends(get_current_active_user)],
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:update"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await portal_service.update_portal_request(db, current_user.org_id, portal_id, request_id, data)
