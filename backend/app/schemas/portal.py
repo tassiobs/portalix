@@ -28,43 +28,9 @@ class PortalOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class PortalRoleCreate(BaseModel):
-    name: str
-    description: str | None = None
-    permissions: list[str] = []
-
-
-class PortalRoleUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    permissions: list[str] | None = None
-
-
-class PortalRoleOut(BaseModel):
-    id: uuid.UUID
-    portal_id: uuid.UUID
-    name: str
-    description: str | None
-    permissions: list[str]
-    is_default: bool
-    level: str = "portal"
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
 class AssignPortalUserRequest(BaseModel):
     user_id: uuid.UUID
     role_id: uuid.UUID
-
-
-class PortalUserOut(BaseModel):
-    user_id: uuid.UUID
-    name: str | None
-    email: str
-    role: PortalRoleOut
-
-    model_config = {"from_attributes": True}
 
 
 class RequestTypeCreate(BaseModel):

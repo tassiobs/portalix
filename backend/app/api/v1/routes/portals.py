@@ -10,9 +10,6 @@ from app.schemas.portal import (
     AssignPortalUserRequest,
     PortalCreate,
     PortalOut,
-    PortalRoleCreate,
-    PortalRoleOut,
-    PortalRoleUpdate,
     PortalUpdate,
     RequestTypeCreate,
     RequestTypeOut,
@@ -21,7 +18,7 @@ from app.schemas.portal import (
     RequestUpdate,
 )
 from app.services import portal as portal_service
-from app.services.portal import PORTAL_PERMISSIONS
+from app.services.rbac import PORTAL_PERMISSIONS
 
 router = APIRouter(prefix="/org/portals", tags=["portals"])
 
@@ -67,48 +64,6 @@ async def delete_portal(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await portal_service.delete_portal(db, current_user.org_id, portal_id)
-
-
-# --- Portal Roles ---
-
-@router.get("/{portal_id}/roles", response_model=list[PortalRoleOut])
-async def list_portal_roles(
-    portal_id: uuid.UUID,
-    current_user: Annotated[OrgUser, Depends(get_current_active_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    return await portal_service.list_portal_roles(db, current_user.org_id, portal_id)
-
-
-@router.post("/{portal_id}/roles", response_model=PortalRoleOut, status_code=status.HTTP_201_CREATED)
-async def create_portal_role(
-    portal_id: uuid.UUID,
-    data: PortalRoleCreate,
-    current_user: Annotated[OrgUser, Depends(require_permissions("org.users.manage"))],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    return await portal_service.create_portal_role(db, current_user.org_id, portal_id, data)
-
-
-@router.patch("/{portal_id}/roles/{role_id}", response_model=PortalRoleOut)
-async def update_portal_role(
-    portal_id: uuid.UUID,
-    role_id: uuid.UUID,
-    data: PortalRoleUpdate,
-    current_user: Annotated[OrgUser, Depends(require_permissions("org.users.manage"))],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    return await portal_service.update_portal_role(db, current_user.org_id, portal_id, role_id, data)
-
-
-@router.delete("/{portal_id}/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_portal_role(
-    portal_id: uuid.UUID,
-    role_id: uuid.UUID,
-    current_user: Annotated[OrgUser, Depends(require_permissions("org.users.manage"))],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    await portal_service.delete_portal_role(db, current_user.org_id, portal_id, role_id)
 
 
 # --- Portal Users ---

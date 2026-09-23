@@ -49,7 +49,41 @@ ORG_PERMISSIONS = [
     },
 ]
 
-VALID_PERMISSION_KEYS = {p["key"] for p in ORG_PERMISSIONS}
+PORTAL_PERMISSIONS = [
+    {
+        "key": "portal.requests:read",
+        "label": "View Requests",
+        "description": "View requests submitted on this portal",
+        "level": "portal",
+    },
+    {
+        "key": "portal.requests:update",
+        "label": "Update Requests",
+        "description": "Update status or title of requests on this portal",
+        "level": "portal",
+    },
+    {
+        "key": "portal.request_types:manage",
+        "label": "Manage Request Types",
+        "description": "Create, update, and delete request types on this portal",
+        "level": "portal",
+    },
+    {
+        "key": "portal.users:manage",
+        "label": "Manage Portal Users",
+        "description": "Add/remove users and assign portal roles",
+        "level": "portal",
+    },
+    {
+        "key": "portal.settings:manage",
+        "label": "Manage Portal Settings",
+        "description": "Update portal name, description, and domain",
+        "level": "portal",
+    },
+]
+
+VALID_ORG_PERMISSION_KEYS = {p["key"] for p in ORG_PERMISSIONS}
+VALID_PORTAL_PERMISSION_KEYS = {p["key"] for p in PORTAL_PERMISSIONS}
 
 
 def build_role_out(role: OrgRole) -> RoleOut:
@@ -58,7 +92,7 @@ def build_role_out(role: OrgRole) -> RoleOut:
         id=role.id,
         name=role.name,
         description=role.description,
-        level="org",
+        level=role.level,
         permissions=perms,
         is_default=role.is_default,
         created_at=role.created_at,
@@ -77,11 +111,14 @@ async def list_roles(db: AsyncSession, org_id: uuid.UUID) -> list[RoleOut]:
 
 
 async def create_role(db: AsyncSession, org_id: uuid.UUID, data: RoleCreate) -> RoleOut:
-    invalid = set(data.permissions) - VALID_PERMISSION_KEYS
+    if data.level not in ("org", "portal"):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="level must be 'org' or 'portal'")
+    valid_keys = VALID_PORTAL_PERMISSION_KEYS if data.level == "portal" else VALID_ORG_PERMISSION_KEYS
+    invalid = set(data.permissions) - valid_keys
     if invalid:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid permissions: {invalid}")
 
-    role = OrgRole(org_id=org_id, name=data.name, description=data.description)
+    role = OrgRole(org_id=org_id, name=data.name, description=data.description, level=data.level)
     db.add(role)
     await db.flush()
 
@@ -126,7 +163,8 @@ async def update_role(db: AsyncSession, org_id: uuid.UUID, role_id: uuid.UUID, d
         role.description = data.description
 
     if data.permissions is not None:
-        invalid = set(data.permissions) - VALID_PERMISSION_KEYS
+        valid_keys = VALID_PORTAL_PERMISSION_KEYS if role.level == "portal" else VALID_ORG_PERMISSION_KEYS
+        invalid = set(data.permissions) - valid_keys
         if invalid:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid permissions: {invalid}")
 

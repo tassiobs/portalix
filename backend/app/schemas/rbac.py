@@ -19,6 +19,7 @@ class RoleOut(BaseModel):
 class RoleCreate(BaseModel):
     name: str
     description: str | None = None
+    level: str = "org"
     permissions: list[str] = []
 
 
