@@ -16,7 +16,6 @@ class SignUpResponse(BaseModel):
 
     user: "UserOut"
     message: str
-    verification_token: str
 
 
 class VerifyEmailRequest(BaseModel):
@@ -40,7 +39,7 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ForgotPasswordResponse(BaseModel):
-    reset_token: str
+    message: str
 
 
 class ResetPasswordRequest(BaseModel):

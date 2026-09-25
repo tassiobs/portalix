@@ -63,4 +63,4 @@ class InvitationOut(BaseModel):
 
 
 class OrgUserCreateResponse(UserOut):
-    invitation_token: str
+    pass

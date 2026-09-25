@@ -120,7 +120,6 @@ async def sign_up(
     return CitizenSignUpResponse(
         citizen=CitizenOut.model_validate(citizen),
         message="Account created. Please check your email to verify your account.",
-        verification_token=token_value,
     )
 
 
@@ -187,12 +186,20 @@ async def refresh_tokens(
     session_id = data.get("session_id")
 
     await redis.delete(f"citizen_refresh:{refresh_token}")
+    session_raw = None
     if session_id:
+        session_raw = await redis.get(f"citizen_session:{session_id}")
         await redis.delete(f"citizen_session:{session_id}")
 
     citizen = (await db.execute(select(Citizen).where(Citizen.id == citizen_id))).scalar_one_or_none()
     if not citizen:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Citizen not found")
+
+    if citizen.tokens_invalidated_at and session_id and session_raw:
+        session_data = json.loads(session_raw)
+        session_created_at = datetime.fromisoformat(session_data["created_at"])
+        if session_created_at < citizen.tokens_invalidated_at:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been invalidated")
 
     return await _build_citizen_auth_response(db, redis, citizen, portal_id)
 
@@ -227,7 +234,7 @@ async def forgot_password(db: AsyncSession, org_slug: str, portal_slug: str, ema
     await db.commit()
 
     send_password_reset_email(citizen.email, token_value, org_slug, portal_slug)
-    return {"message": "If the email exists, a reset link has been sent.", "reset_token": token_value}
+    return {"message": "If the email exists, a reset link has been sent."}
 
 
 async def reset_password(db: AsyncSession, token: str, new_password: str) -> None:

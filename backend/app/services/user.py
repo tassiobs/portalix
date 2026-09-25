@@ -148,7 +148,7 @@ async def create_user(
         user_loaded = await _load_user(db, org_id, existing_user.id)
         portal_roles = await _get_portal_roles(db, existing_user.id)
         user_out = _user_to_out(user_loaded, portal_roles)
-        return OrgUserCreateResponse(**user_out.model_dump(), invitation_token=token_value)
+        return OrgUserCreateResponse(**user_out.model_dump())
 
     user = OrgUser(
         org_id=org_id,
@@ -182,10 +182,7 @@ async def create_user(
     portal_roles = await _get_portal_roles(db, user.id)
     user_out = _user_to_out(user_loaded, portal_roles)
 
-    return OrgUserCreateResponse(
-        **user_out.model_dump(),
-        invitation_token=token_value,
-    )
+    return OrgUserCreateResponse(**user_out.model_dump())
 
 
 async def get_user(db: AsyncSession, org_id: uuid.UUID, user_id: uuid.UUID) -> UserOut:
@@ -304,7 +301,7 @@ async def resend_invitation(
     org = org_result.scalar_one()
     send_invite_email(inv.email, new_token, org.name)
 
-    return {"invitation_token": new_token}
+    return {"message": "Invitation resent."}
 
 
 async def cancel_invitation(

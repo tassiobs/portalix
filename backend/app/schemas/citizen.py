@@ -54,7 +54,6 @@ class CitizenAuthResponse(BaseModel):
 class CitizenSignUpResponse(BaseModel):
     citizen: CitizenOut
     message: str
-    verification_token: str
 
 
 class CitizenRequestCreate(BaseModel):

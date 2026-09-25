@@ -176,7 +176,6 @@ async def sign_up(db: AsyncSession, redis: aioredis.Redis, data: SignUpRequest) 
     return SignUpResponse(
         user=user_out,
         message="Account created. Please check your email to verify your account.",
-        verification_token=token_value,
     )
 
 
@@ -221,7 +220,7 @@ async def resend_verification(db: AsyncSession, email: str) -> dict:
 
     send_verification_email(user.email, token_value)
 
-    return {"message": "Verification token generated.", "verification_token": token_value}
+    return {"message": "If the email exists and is unverified, a new link has been sent."}
 
 
 async def sign_in(
@@ -295,18 +294,24 @@ async def refresh_tokens(
     user_id = uuid.UUID(data["user_id"])
     session_id = data.get("session_id")
 
-    # Delete old refresh token
+    # Delete old refresh token and session before any validation
     await redis.delete(f"refresh:{refresh_token}")
+    if session_id:
+        session_raw = await redis.get(f"session:{session_id}")
+        await redis.delete(f"session:{session_id}")
+        await redis.srem(f"user_sessions:{user_id}", session_id)
 
     result = await db.execute(select(OrgUser).where(OrgUser.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    # Delete old session if present
-    if session_id:
-        await redis.delete(f"session:{session_id}")
-        await redis.srem(f"user_sessions:{user_id}", session_id)
+    # Reject if password was reset or sessions invalidated after this session was created
+    if user.tokens_invalidated_at and session_id and session_raw:
+        session_data = json.loads(session_raw)
+        session_created_at = datetime.fromisoformat(session_data["created_at"])
+        if session_created_at < user.tokens_invalidated_at:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been invalidated")
 
     return await _build_auth_response(db, redis, user, user_agent, ip)
 
@@ -326,12 +331,12 @@ async def sign_out(redis: aioredis.Redis, refresh_token: str, session_id: str | 
 
 
 async def forgot_password(db: AsyncSession, email: str) -> ForgotPasswordResponse:
+    _generic = ForgotPasswordResponse(message="If the email exists, a reset link has been sent.")
+
     result = await db.execute(select(OrgUser).where(OrgUser.email == email))
     user = result.scalar_one_or_none()
-
     if not user:
-        # Silent — still return a token-like response shape (dummy)
-        return ForgotPasswordResponse(reset_token="")
+        return _generic
 
     token_value = generate_secure_token()
     pr_token = PasswordResetToken(
@@ -343,8 +348,7 @@ async def forgot_password(db: AsyncSession, email: str) -> ForgotPasswordRespons
     await db.commit()
 
     send_password_reset_email(user.email, token_value)
-
-    return ForgotPasswordResponse(reset_token=token_value)
+    return _generic
 
 
 async def reset_password(db: AsyncSession, token: str, new_password: str) -> None:
