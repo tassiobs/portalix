@@ -115,7 +115,7 @@ async def sign_up(
     db.add(ev_token)
     await db.commit()
 
-    send_verification_email(citizen.email, token_value)
+    send_verification_email(citizen.email, token_value, org_slug, portal_slug)
 
     return CitizenSignUpResponse(
         citizen=CitizenOut.model_validate(citizen),
@@ -226,7 +226,7 @@ async def forgot_password(db: AsyncSession, org_slug: str, portal_slug: str, ema
     db.add(pr_token)
     await db.commit()
 
-    send_password_reset_email(citizen.email, token_value)
+    send_password_reset_email(citizen.email, token_value, org_slug, portal_slug)
     return {"message": "If the email exists, a reset link has been sent.", "reset_token": token_value}
 
 
