@@ -56,9 +56,15 @@ class CitizenSignUpResponse(BaseModel):
     message: str
 
 
+class CitizenFieldValueSubmit(BaseModel):
+    field_id: uuid.UUID
+    value: str | None = None
+
+
 class CitizenRequestCreate(BaseModel):
     request_type_id: uuid.UUID
     title: str
+    field_values: list[CitizenFieldValueSubmit] = []
 
 
 class CitizenRequestOut(BaseModel):
@@ -69,6 +75,7 @@ class CitizenRequestOut(BaseModel):
     citizen_id: uuid.UUID
     title: str
     status: str
+    field_values: list = []
     created_at: datetime
 
     model_config = {"from_attributes": True}

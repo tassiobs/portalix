@@ -12,6 +12,9 @@ from app.schemas.portal import (
     PortalOut,
     PortalUpdate,
     RequestTypeCreate,
+    RequestTypeFieldCreate,
+    RequestTypeFieldOut,
+    RequestTypeFieldUpdate,
     RequestTypeOut,
     RequestTypeUpdate,
     RequestOut,
@@ -128,6 +131,52 @@ async def delete_request_type(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await portal_service.delete_request_type(db, current_user.org_id, portal_id, rt_id)
+
+
+# --- Request Type Fields ---
+
+@router.get("/{portal_id}/request-types/{rt_id}/fields", response_model=list[RequestTypeFieldOut])
+async def list_request_type_fields(
+    portal_id: uuid.UUID,
+    rt_id: uuid.UUID,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.request_types:manage"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await portal_service.list_request_type_fields(db, portal_id, rt_id)
+
+
+@router.post("/{portal_id}/request-types/{rt_id}/fields", response_model=RequestTypeFieldOut, status_code=status.HTTP_201_CREATED)
+async def create_request_type_field(
+    portal_id: uuid.UUID,
+    rt_id: uuid.UUID,
+    data: RequestTypeFieldCreate,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.request_types:manage"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await portal_service.create_request_type_field(db, current_user.org_id, portal_id, rt_id, data)
+
+
+@router.patch("/{portal_id}/request-types/{rt_id}/fields/{field_id}", response_model=RequestTypeFieldOut)
+async def update_request_type_field(
+    portal_id: uuid.UUID,
+    rt_id: uuid.UUID,
+    field_id: uuid.UUID,
+    data: RequestTypeFieldUpdate,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.request_types:manage"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await portal_service.update_request_type_field(db, current_user.org_id, portal_id, rt_id, field_id, data)
+
+
+@router.delete("/{portal_id}/request-types/{rt_id}/fields/{field_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_request_type_field(
+    portal_id: uuid.UUID,
+    rt_id: uuid.UUID,
+    field_id: uuid.UUID,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.request_types:manage"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    await portal_service.delete_request_type_field(db, current_user.org_id, portal_id, rt_id, field_id)
 
 
 # --- Portal Requests (admin view) ---
