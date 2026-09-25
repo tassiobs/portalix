@@ -18,8 +18,11 @@ def _send(to: str, subject: str, html: str) -> None:
         print(f"[email] failed to send to {to}: {e}")
 
 
-def send_verification_email(to: str, token: str, org_slug: str, portal_slug: str) -> None:
-    url = f"{settings.FRONTEND_URL}/{org_slug}/{portal_slug}/verify-email?token={token}"
+def send_verification_email(to: str, token: str, org_slug: str | None = None, portal_slug: str | None = None) -> None:
+    if org_slug and portal_slug:
+        url = f"{settings.FRONTEND_URL}/{org_slug}/{portal_slug}/verify-email?token={token}"
+    else:
+        url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
     _send(
         to=to,
         subject="Verify your email",
@@ -27,8 +30,11 @@ def send_verification_email(to: str, token: str, org_slug: str, portal_slug: str
     )
 
 
-def send_password_reset_email(to: str, token: str, org_slug: str, portal_slug: str) -> None:
-    url = f"{settings.FRONTEND_URL}/{org_slug}/{portal_slug}/reset-password?token={token}"
+def send_password_reset_email(to: str, token: str, org_slug: str | None = None, portal_slug: str | None = None) -> None:
+    if org_slug and portal_slug:
+        url = f"{settings.FRONTEND_URL}/{org_slug}/{portal_slug}/reset-password?token={token}"
+    else:
+        url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
     _send(
         to=to,
         subject="Reset your password",
