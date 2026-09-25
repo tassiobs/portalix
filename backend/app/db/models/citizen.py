@@ -12,7 +12,7 @@ class Citizen(Base):
     __tablename__ = "citizens"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    portal_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("portals.id"), nullable=False)
+    org_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False)
     name: Mapped[str | None] = mapped_column(String, nullable=True)
     email: Mapped[str] = mapped_column(String, nullable=False, index=True)
     hashed_password: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -23,9 +23,7 @@ class Citizen(Base):
     tokens_invalidated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
-    __table_args__ = (UniqueConstraint("portal_id", "email", name="uq_citizen_portal_email"),)
-
-    portal: Mapped["Portal"] = relationship("Portal", back_populates="citizens")
+    __table_args__ = (UniqueConstraint("org_id", "email", name="uq_citizen_org_email"),)
     email_verification_tokens: Mapped[list["CitizenEmailVerificationToken"]] = relationship(
         "CitizenEmailVerificationToken", back_populates="citizen", cascade="all, delete-orphan"
     )

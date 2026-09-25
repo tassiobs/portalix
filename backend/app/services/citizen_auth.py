@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.security import create_access_token, generate_secure_token, hash_password, verify_password
 from app.db.models.citizen import Citizen, CitizenEmailVerificationToken, CitizenPasswordResetToken
+from app.db.models.org import Organization
 from app.db.models.portal import Portal
 from app.schemas.citizen import (
     CitizenAuthResponse,
@@ -20,15 +21,18 @@ from app.schemas.citizen import (
 from app.services.email import send_verification_email, send_password_reset_email
 
 
-async def _get_portal_by_slug(db: AsyncSession, org_slug: str, portal_slug: str) -> Portal:
-    from app.db.models.org import Organization
-    org_result = await db.execute(select(Organization).where(Organization.slug == org_slug))
-    org = org_result.scalar_one_or_none()
+async def _get_org_by_slug(db: AsyncSession, org_slug: str) -> Organization:
+    org = (await db.execute(select(Organization).where(Organization.slug == org_slug))).scalar_one_or_none()
     if not org:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portal not found")
+    return org
 
-    portal_result = await db.execute(select(Portal).where(Portal.org_id == org.id, Portal.slug == portal_slug))
-    portal = portal_result.scalar_one_or_none()
+
+async def _get_portal_by_slug(db: AsyncSession, org_slug: str, portal_slug: str) -> Portal:
+    org = await _get_org_by_slug(db, org_slug)
+    portal = (await db.execute(
+        select(Portal).where(Portal.org_id == org.id, Portal.slug == portal_slug)
+    )).scalar_one_or_none()
     if not portal:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portal not found")
     return portal
@@ -60,12 +64,12 @@ async def _create_citizen_session(
 
 
 async def _build_citizen_auth_response(
-    db: AsyncSession, redis: aioredis.Redis, citizen: Citizen
+    db: AsyncSession, redis: aioredis.Redis, citizen: Citizen, portal_id: uuid.UUID
 ) -> CitizenAuthResponse:
-    _, refresh_token_id = await _create_citizen_session(redis, citizen.id, citizen.portal_id)
+    _, refresh_token_id = await _create_citizen_session(redis, citizen.id, portal_id)
     access_token = create_access_token({
         "sub": str(citizen.id),
-        "portal_id": str(citizen.portal_id),
+        "portal_id": str(portal_id),
         "type": "citizen",
     })
     return CitizenAuthResponse(
@@ -78,12 +82,14 @@ async def _build_citizen_auth_response(
 async def sign_up(
     db: AsyncSession, redis: aioredis.Redis, org_slug: str, portal_slug: str, data: CitizenSignUpRequest
 ) -> CitizenSignUpResponse:
+    # Validate the portal exists (so sign-up on an invalid URL fails)
     portal = await _get_portal_by_slug(db, org_slug, portal_slug)
+    org_id = portal.org_id
 
-    existing_result = await db.execute(
-        select(Citizen).where(Citizen.portal_id == portal.id, Citizen.email == data.email)
-    )
-    existing = existing_result.scalar_one_or_none()
+    existing = (await db.execute(
+        select(Citizen).where(Citizen.org_id == org_id, Citizen.email == data.email)
+    )).scalar_one_or_none()
+
     if existing:
         if existing.email_verified:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
@@ -91,7 +97,7 @@ async def sign_up(
         await db.flush()
 
     citizen = Citizen(
-        portal_id=portal.id,
+        org_id=org_id,
         name=data.name,
         email=data.email,
         hashed_password=hash_password(data.password),
@@ -119,10 +125,9 @@ async def sign_up(
 
 
 async def verify_email(db: AsyncSession, token: str) -> dict:
-    result = await db.execute(
+    ev_token = (await db.execute(
         select(CitizenEmailVerificationToken).where(CitizenEmailVerificationToken.token == token)
-    )
-    ev_token = result.scalar_one_or_none()
+    )).scalar_one_or_none()
 
     if not ev_token:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid verification token")
@@ -132,8 +137,7 @@ async def verify_email(db: AsyncSession, token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token expired")
 
     ev_token.used = True
-    citizen_result = await db.execute(select(Citizen).where(Citizen.id == ev_token.citizen_id))
-    citizen = citizen_result.scalar_one()
+    citizen = (await db.execute(select(Citizen).where(Citizen.id == ev_token.citizen_id))).scalar_one()
     citizen.email_verified = True
     await db.commit()
 
@@ -145,10 +149,9 @@ async def sign_in(
 ) -> CitizenAuthResponse:
     portal = await _get_portal_by_slug(db, org_slug, portal_slug)
 
-    result = await db.execute(
-        select(Citizen).where(Citizen.portal_id == portal.id, Citizen.email == email)
-    )
-    citizen = result.scalar_one_or_none()
+    citizen = (await db.execute(
+        select(Citizen).where(Citizen.org_id == portal.org_id, Citizen.email == email)
+    )).scalar_one_or_none()
 
     if not citizen:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
@@ -168,7 +171,7 @@ async def sign_in(
     citizen.locked_until = None
     await db.commit()
 
-    return await _build_citizen_auth_response(db, redis, citizen)
+    return await _build_citizen_auth_response(db, redis, citizen, portal.id)
 
 
 async def refresh_tokens(
@@ -180,18 +183,18 @@ async def refresh_tokens(
 
     data = json.loads(raw)
     citizen_id = uuid.UUID(data["citizen_id"])
+    portal_id = uuid.UUID(data["portal_id"])
     session_id = data.get("session_id")
 
     await redis.delete(f"citizen_refresh:{refresh_token}")
     if session_id:
         await redis.delete(f"citizen_session:{session_id}")
 
-    result = await db.execute(select(Citizen).where(Citizen.id == citizen_id))
-    citizen = result.scalar_one_or_none()
+    citizen = (await db.execute(select(Citizen).where(Citizen.id == citizen_id))).scalar_one_or_none()
     if not citizen:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Citizen not found")
 
-    return await _build_citizen_auth_response(db, redis, citizen)
+    return await _build_citizen_auth_response(db, redis, citizen, portal_id)
 
 
 async def sign_out(redis: aioredis.Redis, refresh_token: str) -> None:
@@ -206,8 +209,10 @@ async def sign_out(redis: aioredis.Redis, refresh_token: str) -> None:
 
 async def forgot_password(db: AsyncSession, org_slug: str, portal_slug: str, email: str) -> dict:
     portal = await _get_portal_by_slug(db, org_slug, portal_slug)
-    result = await db.execute(select(Citizen).where(Citizen.portal_id == portal.id, Citizen.email == email))
-    citizen = result.scalar_one_or_none()
+
+    citizen = (await db.execute(
+        select(Citizen).where(Citizen.org_id == portal.org_id, Citizen.email == email)
+    )).scalar_one_or_none()
 
     if not citizen:
         return {"message": "If the email exists, a reset link has been sent."}
@@ -226,8 +231,9 @@ async def forgot_password(db: AsyncSession, org_slug: str, portal_slug: str, ema
 
 
 async def reset_password(db: AsyncSession, token: str, new_password: str) -> None:
-    result = await db.execute(select(CitizenPasswordResetToken).where(CitizenPasswordResetToken.token == token))
-    pr_token = result.scalar_one_or_none()
+    pr_token = (await db.execute(
+        select(CitizenPasswordResetToken).where(CitizenPasswordResetToken.token == token)
+    )).scalar_one_or_none()
 
     if not pr_token:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset token")
@@ -236,8 +242,7 @@ async def reset_password(db: AsyncSession, token: str, new_password: str) -> Non
     if pr_token.expires_at < datetime.utcnow():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token expired")
 
-    citizen_result = await db.execute(select(Citizen).where(Citizen.id == pr_token.citizen_id))
-    citizen = citizen_result.scalar_one()
+    citizen = (await db.execute(select(Citizen).where(Citizen.id == pr_token.citizen_id))).scalar_one()
     citizen.hashed_password = hash_password(new_password)
     citizen.tokens_invalidated_at = datetime.utcnow()
     pr_token.used = True

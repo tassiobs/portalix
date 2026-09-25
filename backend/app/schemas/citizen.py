@@ -34,7 +34,7 @@ class CitizenRefreshRequest(BaseModel):
 
 class CitizenOut(BaseModel):
     id: uuid.UUID
-    portal_id: uuid.UUID
+    org_id: uuid.UUID
     name: str | None
     email: str
     email_verified: bool

@@ -27,7 +27,7 @@ class Portal(Base):
     user_roles: Mapped[list["PortalUserRole"]] = relationship("PortalUserRole", back_populates="portal", cascade="all, delete-orphan")
     request_types: Mapped[list["RequestType"]] = relationship("RequestType", back_populates="portal", cascade="all, delete-orphan")
     requests: Mapped[list["Request"]] = relationship("Request", back_populates="portal", cascade="all, delete-orphan")
-    citizens: Mapped[list["Citizen"]] = relationship("Citizen", back_populates="portal", cascade="all, delete-orphan")
+
 
 
 class PortalUserRole(Base):

@@ -87,7 +87,8 @@ async def get_current_citizen(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
     citizen_id: str | None = payload.get("sub")
-    if not citizen_id:
+    portal_id: str | None = payload.get("portal_id")
+    if not citizen_id or not portal_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
 
     result = await db.execute(select(Citizen).where(Citizen.id == UUID(citizen_id)))
@@ -97,6 +98,10 @@ async def get_current_citizen(
 
     if citizen.status != "active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account deactivated")
+
+    # Attach portal_id from JWT so downstream services can scope requests correctly.
+    # Citizens are org-scoped in the DB; portal context lives only in the token.
+    citizen.portal_id = UUID(portal_id)
 
     return citizen
 
