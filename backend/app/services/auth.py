@@ -165,9 +165,11 @@ async def sign_up(db: AsyncSession, redis: aioredis.Redis, data: SignUpRequest) 
         expires_at=datetime.utcnow() + timedelta(hours=24),
     )
     db.add(ev_token)
-    await db.commit()
+    await db.flush()
 
     send_verification_email(data.email, token_value)
+
+    await db.commit()
 
     # Load user with roles for response
     user_with_roles = await _load_user_with_roles(db, user.id)

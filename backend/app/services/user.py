@@ -142,8 +142,9 @@ async def create_user(
                 expires_at=datetime.utcnow() + timedelta(days=7),
             ))
 
-        await db.commit()
+        await db.flush()
         send_invite_email(data.email, token_value, org.name)
+        await db.commit()
 
         user_loaded = await _load_user(db, org_id, existing_user.id)
         portal_roles = await _get_portal_roles(db, existing_user.id)
@@ -172,11 +173,12 @@ async def create_user(
         expires_at=datetime.utcnow() + timedelta(days=7),
     )
     db.add(inv_token)
-    await db.commit()
+    await db.flush()
 
     org_result = await db.execute(select(Organization).where(Organization.id == org_id))
     org = org_result.scalar_one()
     send_invite_email(data.email, token_value, org.name)
+    await db.commit()
 
     user_loaded = await _load_user(db, org_id, user.id)
     portal_roles = await _get_portal_roles(db, user.id)
@@ -295,11 +297,12 @@ async def resend_invitation(
     inv.token = new_token
     inv.status = "pending"
     inv.expires_at = datetime.utcnow() + timedelta(days=7)
-    await db.commit()
+    await db.flush()
 
     org_result = await db.execute(select(Organization).where(Organization.id == org_id))
     org = org_result.scalar_one()
     send_invite_email(inv.email, new_token, org.name)
+    await db.commit()
 
     return {"message": "Invitation resent."}
 

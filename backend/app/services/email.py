@@ -1,9 +1,10 @@
 import resend
+from fastapi import HTTPException, status
 
 from app.core.config import settings
 
 
-def _send(to: str, subject: str, html: str) -> None:
+def _send(to: str, subject: str, html: str, raise_on_failure: bool = False) -> None:
     if not settings.RESEND_API_KEY:
         return
     try:
@@ -16,6 +17,11 @@ def _send(to: str, subject: str, html: str) -> None:
         })
     except Exception as e:
         print(f"[email] failed to send to {to}: {e}")
+        if raise_on_failure:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to send verification email. Please try again.",
+            )
 
 
 def send_verification_email(to: str, token: str, org_slug: str | None = None, portal_slug: str | None = None) -> None:
@@ -27,6 +33,7 @@ def send_verification_email(to: str, token: str, org_slug: str | None = None, po
         to=to,
         subject="Verify your email",
         html=f'<p>Click the link below to verify your email:</p><p><a href="{url}">{url}</a></p>',
+        raise_on_failure=True,
     )
 
 
@@ -48,4 +55,5 @@ def send_invite_email(to: str, token: str, org_name: str) -> None:
         to=to,
         subject=f"You've been invited to {org_name}",
         html=f'<p>You have been invited to join <strong>{org_name}</strong>.</p><p><a href="{url}">Accept invitation</a></p>',
+        raise_on_failure=True,
     )

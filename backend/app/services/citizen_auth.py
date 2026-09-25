@@ -113,9 +113,11 @@ async def sign_up(
         expires_at=datetime.utcnow() + timedelta(hours=24),
     )
     db.add(ev_token)
-    await db.commit()
+    await db.flush()
 
     send_verification_email(citizen.email, token_value, org_slug, portal_slug)
+
+    await db.commit()
 
     return CitizenSignUpResponse(
         citizen=CitizenOut.model_validate(citizen),
