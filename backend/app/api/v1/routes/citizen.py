@@ -9,6 +9,7 @@ from app.db.models.citizen import Citizen
 from app.schemas.citizen import (
     CitizenAuthResponse,
     CitizenForgotPasswordRequest,
+    CitizenOut,
     CitizenRefreshRequest,
     CitizenRequestCreate,
     CitizenRequestOut,
@@ -18,6 +19,7 @@ from app.schemas.citizen import (
     CitizenSignUpResponse,
     CitizenVerifyEmailRequest,
 )
+from app.schemas.portal import RequestTypeOut
 from app.services import citizen_auth as auth_service
 from app.services import citizen_requests as request_service
 
@@ -89,14 +91,22 @@ async def reset_password(
     await auth_service.reset_password(db, data.token, data.new_password)
 
 
-@router.get("/request-types", response_model=list[CitizenRequestOut])
+@router.get("/auth/me", response_model=CitizenOut)
+async def get_me(
+    citizen: Annotated[Citizen, Depends(get_current_citizen)],
+):
+    return citizen
+
+
+@router.get("/request-types", response_model=list[RequestTypeOut])
 async def list_request_types(
     org_slug: str,
     portal_slug: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    citizen: Annotated[Citizen, Depends(get_current_citizen)],
 ):
-    return await request_service.list_request_types(db, citizen.portal_id)
+    from app.services.citizen_auth import _get_portal_by_slug
+    portal = await _get_portal_by_slug(db, org_slug, portal_slug)
+    return await request_service.list_request_types(db, portal.id)
 
 
 @router.get("/requests", response_model=list[CitizenRequestOut])

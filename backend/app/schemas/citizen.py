@@ -66,6 +66,7 @@ class CitizenRequestOut(BaseModel):
     id: uuid.UUID
     portal_id: uuid.UUID
     request_type_id: uuid.UUID
+    request_type_name: str | None = None
     citizen_id: uuid.UUID
     title: str
     status: str
