@@ -198,6 +198,16 @@ async def list_portal_requests(
     return await portal_service.list_portal_requests(db, current_user.org_id, portal_id)
 
 
+@router.get("/{portal_id}/requests/{request_id}", response_model=RequestOut)
+async def get_portal_request(
+    portal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await portal_service.get_portal_request(db, current_user.org_id, portal_id, request_id)
+
+
 @router.patch("/{portal_id}/requests/{request_id}", response_model=RequestOut)
 async def update_portal_request(
     portal_id: uuid.UUID,

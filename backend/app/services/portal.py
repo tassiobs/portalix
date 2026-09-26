@@ -320,6 +320,12 @@ async def list_portal_requests(db: AsyncSession, org_id: uuid.UUID, portal_id: u
     return [_request_to_out(r) for r in result.scalars().all()]
 
 
+async def get_portal_request(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID, request_id: uuid.UUID) -> RequestOut:
+    await _get_portal(db, org_id, portal_id)
+    req = await _load_request(db, portal_id, request_id)
+    return _request_to_out(req)
+
+
 async def update_portal_request(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID, request_id: uuid.UUID, data: RequestUpdate) -> RequestOut:
     await _get_portal(db, org_id, portal_id)
     req = await _load_request(db, portal_id, request_id)
