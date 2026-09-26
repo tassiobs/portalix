@@ -129,6 +129,7 @@ class TaskDefinitionIn(BaseModel):
     assignee_user_id: uuid.UUID | None = None
     deadline_offset_hours: int | None = None
     depends_on: list[str] = []
+    fan_out: bool = False
 
 
 class TaskDefinitionOut(BaseModel):
@@ -140,6 +141,7 @@ class TaskDefinitionOut(BaseModel):
     assignee_user_id: uuid.UUID | None
     deadline_offset_hours: int | None
     depends_on: list[str]
+    fan_out: bool
 
     model_config = {"from_attributes": True}
 
@@ -157,6 +159,24 @@ class WorkflowOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class TaskCommentIn(BaseModel):
+    body: str | None = None
+    file_url: str | None = None
+    file_name: str | None = None
+
+
+class TaskCommentOut(BaseModel):
+    id: uuid.UUID
+    task_instance_id: uuid.UUID
+    author_user_id: uuid.UUID | None
+    body: str | None
+    file_url: str | None
+    file_name: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class TaskInstanceOut(BaseModel):
     id: uuid.UUID
     request_id: uuid.UUID
@@ -168,6 +188,7 @@ class TaskInstanceOut(BaseModel):
     deadline: datetime | None
     completed_at: datetime | None
     completion_notes: str | None
+    comments: list[TaskCommentOut] = []
 
     model_config = {"from_attributes": True}
 

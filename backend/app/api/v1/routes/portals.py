@@ -24,6 +24,8 @@ from app.schemas.portal import (
     TaskInstanceOut,
     TaskInstanceUpdate,
     TaskCompleteIn,
+    TaskCommentIn,
+    TaskCommentOut,
 )
 from app.services import portal as portal_service
 from app.services import workflow as workflow_service
@@ -275,3 +277,32 @@ async def complete_task(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await workflow_service.complete_task(db, current_user.org_id, portal_id, request_id, task_id, data)
+
+
+# --- Task Comments ---
+
+@router.post(
+    "/{portal_id}/requests/{request_id}/tasks/{task_id}/comments",
+    response_model=TaskCommentOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_task_comment(
+    portal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    task_id: uuid.UUID,
+    data: TaskCommentIn,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:update"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await workflow_service.add_comment(db, current_user.org_id, portal_id, request_id, task_id, current_user, data)
+
+
+@router.get("/{portal_id}/requests/{request_id}/tasks/{task_id}/comments", response_model=list[TaskCommentOut])
+async def list_task_comments(
+    portal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    task_id: uuid.UUID,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await workflow_service.list_comments(db, current_user.org_id, portal_id, request_id, task_id)

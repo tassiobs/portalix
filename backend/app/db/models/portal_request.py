@@ -102,6 +102,8 @@ class TaskDefinition(Base):
     deadline_offset_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     depends_on: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, nullable=False)
 
+    fan_out: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     workflow: Mapped["Workflow"] = relationship("Workflow", back_populates="tasks")
     instances: Mapped[list["TaskInstance"]] = relationship("TaskInstance", back_populates="task_definition")
 
@@ -123,3 +125,21 @@ class TaskInstance(Base):
 
     request: Mapped["Request"] = relationship("Request", back_populates="task_instances")
     task_definition: Mapped["TaskDefinition"] = relationship("TaskDefinition", back_populates="instances")
+    comments: Mapped[list["TaskComment"]] = relationship(
+        "TaskComment", back_populates="task_instance", cascade="all, delete-orphan"
+    )
+
+
+class TaskComment(Base):
+    __tablename__ = "task_comments"
+    __table_args__ = (Index("ix_task_comments_task_instance_id", "task_instance_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_instance_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("task_instances.id"), nullable=False)
+    author_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("org_users.id"), nullable=True)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    file_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    file_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    task_instance: Mapped["TaskInstance"] = relationship("TaskInstance", back_populates="comments")
