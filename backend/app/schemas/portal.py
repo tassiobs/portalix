@@ -117,3 +117,65 @@ class RequestOut(BaseModel):
 class RequestUpdate(BaseModel):
     status: str | None = None
     title: str | None = None
+
+
+# --- Workflow schemas ---
+
+class TaskDefinitionIn(BaseModel):
+    key: str
+    name: str
+    department_id: uuid.UUID | None = None
+    assignee_role: str | None = None
+    assignee_user_id: uuid.UUID | None = None
+    deadline_offset_hours: int | None = None
+    depends_on: list[str] = []
+
+
+class TaskDefinitionOut(BaseModel):
+    id: uuid.UUID
+    key: str
+    name: str
+    department_id: uuid.UUID | None
+    assignee_role: str | None
+    assignee_user_id: uuid.UUID | None
+    deadline_offset_hours: int | None
+    depends_on: list[str]
+
+    model_config = {"from_attributes": True}
+
+
+class WorkflowIn(BaseModel):
+    tasks: list[TaskDefinitionIn]
+
+
+class WorkflowOut(BaseModel):
+    id: uuid.UUID
+    request_type_id: uuid.UUID
+    tasks: list[TaskDefinitionOut]
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class TaskInstanceOut(BaseModel):
+    id: uuid.UUID
+    request_id: uuid.UUID
+    task_definition: TaskDefinitionOut
+    status: str
+    outcome: str | None
+    assigned_to_user_id: uuid.UUID | None
+    activated_at: datetime | None
+    deadline: datetime | None
+    completed_at: datetime | None
+    completion_notes: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class TaskInstanceUpdate(BaseModel):
+    assigned_to_user_id: uuid.UUID | None = None
+
+
+class TaskCompleteIn(BaseModel):
+    outcome: str
+    notes: str | None = None

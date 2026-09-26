@@ -81,6 +81,18 @@ PORTAL_PERMISSIONS = [
         "description": "Update portal name, description, and domain",
         "level": "portal",
     },
+    {
+        "key": "portal.workflows:view",
+        "label": "View Workflows",
+        "description": "Read-only access to workflow definitions for request types",
+        "level": "portal",
+    },
+    {
+        "key": "portal.workflows:manage",
+        "label": "Manage Workflows",
+        "description": "Create and replace workflow definitions for request types",
+        "level": "portal",
+    },
 ]
 
 VALID_ORG_PERMISSION_KEYS = {p["key"] for p in ORG_PERMISSIONS}

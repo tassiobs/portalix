@@ -19,8 +19,14 @@ from app.schemas.portal import (
     RequestTypeUpdate,
     RequestOut,
     RequestUpdate,
+    WorkflowIn,
+    WorkflowOut,
+    TaskInstanceOut,
+    TaskInstanceUpdate,
+    TaskCompleteIn,
 )
 from app.services import portal as portal_service
+from app.services import workflow as workflow_service
 from app.services.rbac import PORTAL_PERMISSIONS
 
 router = APIRouter(prefix="/org/portals", tags=["portals"])
@@ -199,3 +205,73 @@ async def update_portal_request(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await portal_service.update_portal_request(db, current_user.org_id, portal_id, request_id, data)
+
+
+# --- Workflows ---
+
+@router.get("/{portal_id}/request-types/{rt_id}/workflow", response_model=WorkflowOut)
+async def get_workflow(
+    portal_id: uuid.UUID,
+    rt_id: uuid.UUID,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.workflows:view"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await workflow_service.get_workflow(db, current_user.org_id, portal_id, rt_id)
+
+
+@router.put("/{portal_id}/request-types/{rt_id}/workflow", response_model=WorkflowOut)
+async def upsert_workflow(
+    portal_id: uuid.UUID,
+    rt_id: uuid.UUID,
+    data: WorkflowIn,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.workflows:manage"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await workflow_service.upsert_workflow(db, current_user.org_id, portal_id, rt_id, data)
+
+
+# --- Tasks ---
+
+@router.get("/{portal_id}/requests/{request_id}/tasks", response_model=list[TaskInstanceOut])
+async def list_tasks(
+    portal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await workflow_service.list_tasks(db, current_user.org_id, portal_id, request_id)
+
+
+@router.get("/{portal_id}/requests/{request_id}/tasks/{task_id}", response_model=TaskInstanceOut)
+async def get_task(
+    portal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    task_id: uuid.UUID,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await workflow_service.get_task(db, current_user.org_id, portal_id, request_id, task_id)
+
+
+@router.patch("/{portal_id}/requests/{request_id}/tasks/{task_id}", response_model=TaskInstanceOut)
+async def update_task(
+    portal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    task_id: uuid.UUID,
+    data: TaskInstanceUpdate,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:update"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await workflow_service.update_task(db, current_user.org_id, portal_id, request_id, task_id, data)
+
+
+@router.post("/{portal_id}/requests/{request_id}/tasks/{task_id}/complete", response_model=TaskInstanceOut)
+async def complete_task(
+    portal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    task_id: uuid.UUID,
+    data: TaskCompleteIn,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:update"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await workflow_service.complete_task(db, current_user.org_id, portal_id, request_id, task_id, data)

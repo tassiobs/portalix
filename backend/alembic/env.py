@@ -10,6 +10,7 @@ from alembic import context
 # Import Base and all models so Alembic can detect them
 from app.db.base import Base  # noqa: F401
 from app.db.models import org, user, rbac  # noqa: F401
+from app.db.models import portal_request, portal, citizen  # noqa: F401
 from app.core.config import settings
 
 config = context.config

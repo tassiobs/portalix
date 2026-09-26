@@ -6,9 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.models.citizen import Citizen
-from app.db.models.portal_request import Request, RequestFieldValue, RequestType, RequestTypeField
+from app.db.models.portal_request import Request, RequestFieldValue, RequestType, RequestTypeField, Workflow
 from app.schemas.citizen import CitizenRequestCreate, CitizenRequestOut
 from app.schemas.portal import RequestFieldValueOut, RequestTypeOut
+from app.services import workflow as workflow_service
 
 
 def _request_to_out(req: Request) -> CitizenRequestOut:
@@ -95,6 +96,15 @@ async def create_request(db: AsyncSession, citizen: Citizen, data: CitizenReques
 
     for fv in data.field_values:
         db.add(RequestFieldValue(request_id=req.id, field_id=fv.field_id, value=fv.value))
+
+    # Instantiate workflow tasks if a workflow is configured for this request type
+    workflow = (await db.execute(
+        select(Workflow)
+        .where(Workflow.request_type_id == data.request_type_id)
+        .options(selectinload(Workflow.tasks))
+    )).scalar_one_or_none()
+    if workflow:
+        await workflow_service.instantiate_workflow(db, req.id, workflow)
 
     await db.commit()
 
