@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.slugify import slugify
 from app.db.models.citizen import Citizen
 from app.db.models.portal import Portal, PortalUserRole
-from app.db.models.portal_request import Request, RequestFieldValue, RequestType, RequestTypeField
+from app.db.models.portal_request import Request, RequestFieldValue, RequestType, RequestTypeField, TaskInstance
 from app.db.models.rbac import OrgRole
 from app.db.models.user import OrgUser
 from app.schemas.portal import (
@@ -305,10 +305,10 @@ async def delete_request_type_field(
 
 # --- Portal Requests (admin view) ---
 
-async def list_portal_requests(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID) -> list[RequestOut]:
+async def list_portal_requests(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID, user_id: uuid.UUID, read_all: bool) -> list[RequestOut]:
     from sqlalchemy.orm import selectinload
     await _get_portal(db, org_id, portal_id)
-    result = await db.execute(
+    query = (
         select(Request)
         .where(Request.portal_id == portal_id)
         .options(
@@ -317,12 +317,28 @@ async def list_portal_requests(db: AsyncSession, org_id: uuid.UUID, portal_id: u
         )
         .order_by(Request.created_at.desc())
     )
+    if not read_all:
+        query = query.where(
+            Request.id.in_(
+                select(TaskInstance.request_id).where(TaskInstance.assigned_to_user_id == user_id)
+            )
+        )
+    result = await db.execute(query)
     return [_request_to_out(r) for r in result.scalars().all()]
 
 
-async def get_portal_request(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID, request_id: uuid.UUID) -> RequestOut:
+async def get_portal_request(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID, request_id: uuid.UUID, user_id: uuid.UUID, read_all: bool) -> RequestOut:
     await _get_portal(db, org_id, portal_id)
     req = await _load_request(db, portal_id, request_id)
+    if not read_all:
+        has_task = await db.scalar(
+            select(TaskInstance.id).where(
+                TaskInstance.request_id == request_id,
+                TaskInstance.assigned_to_user_id == user_id,
+            )
+        )
+        if not has_task:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     return _request_to_out(req)
 
 

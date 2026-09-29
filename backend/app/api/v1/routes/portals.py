@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_active_user, get_db, require_permissions, require_portal_permissions
+from app.core.dependencies import get_current_active_user, get_db, require_permissions, require_portal_permissions, has_portal_permission
 from app.db.models.user import OrgUser
 from app.schemas.portal import (
     AssignPortalUserRequest,
@@ -192,20 +192,22 @@ async def delete_request_type_field(
 @router.get("/{portal_id}/requests", response_model=list[RequestOut])
 async def list_portal_requests(
     portal_id: uuid.UUID,
-    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read"))],
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read", "portal.requests:read_all"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    return await portal_service.list_portal_requests(db, current_user.org_id, portal_id)
+    read_all = await has_portal_permission(portal_id, current_user, db, "portal.requests:read_all")
+    return await portal_service.list_portal_requests(db, current_user.org_id, portal_id, current_user.id, read_all)
 
 
 @router.get("/{portal_id}/requests/{request_id}", response_model=RequestOut)
 async def get_portal_request(
     portal_id: uuid.UUID,
     request_id: uuid.UUID,
-    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read"))],
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read", "portal.requests:read_all"))],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    return await portal_service.get_portal_request(db, current_user.org_id, portal_id, request_id)
+    read_all = await has_portal_permission(portal_id, current_user, db, "portal.requests:read_all")
+    return await portal_service.get_portal_request(db, current_user.org_id, portal_id, request_id, current_user.id, read_all)
 
 
 @router.patch("/{portal_id}/requests/{request_id}", response_model=RequestOut)

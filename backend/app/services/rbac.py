@@ -53,8 +53,14 @@ ORG_PERMISSIONS = [
 PORTAL_PERMISSIONS = [
     {
         "key": "portal.requests:read",
-        "label": "View Requests",
-        "description": "View requests submitted on this portal",
+        "label": "View Assigned Requests",
+        "description": "View requests where the user has an assigned task",
+        "level": "portal",
+    },
+    {
+        "key": "portal.requests:read_all",
+        "label": "View All Requests",
+        "description": "View all requests submitted on this portal regardless of assignment",
         "level": "portal",
     },
     {

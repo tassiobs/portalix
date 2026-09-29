@@ -130,6 +130,37 @@ def require_permissions(*perms: str):
     return _dependency
 
 
+async def has_portal_permission(
+    portal_id: UUID,
+    user: OrgUser,
+    db: AsyncSession,
+    perm: str,
+) -> bool:
+    if user.is_super_admin:
+        return True
+    org_perm = await db.execute(
+        select(OrgRolePermission)
+        .join(OrgUserRole, OrgUserRole.role_id == OrgRolePermission.role_id)
+        .where(
+            OrgUserRole.user_id == user.id,
+            OrgRolePermission.permission.in_(["org.users.manage", "org.portals.manage"]),
+        )
+    )
+    if org_perm.scalars().first():
+        return True
+    result = await db.execute(
+        select(OrgRolePermission)
+        .join(OrgRole, OrgRole.id == OrgRolePermission.role_id)
+        .join(PortalUserRole, PortalUserRole.role_id == OrgRole.id)
+        .where(
+            PortalUserRole.user_id == user.id,
+            PortalUserRole.portal_id == portal_id,
+            OrgRolePermission.permission == perm,
+        )
+    )
+    return result.scalars().first() is not None
+
+
 def require_portal_permissions(*perms: str):
     """Returns a dependency that checks the current user has at least one of the given portal-level permissions.
 
