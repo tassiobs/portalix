@@ -39,6 +39,8 @@ async def sign_up(
 
 @router.post("/auth/verify-email")
 async def verify_email(
+    org_slug: str,
+    portal_slug: str,
     data: CitizenVerifyEmailRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -58,6 +60,8 @@ async def sign_in(
 
 @router.post("/auth/refresh", response_model=CitizenAuthResponse)
 async def refresh(
+    org_slug: str,
+    portal_slug: str,
     data: CitizenRefreshRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
     redis: Annotated[aioredis.Redis, Depends(get_redis)],
@@ -67,6 +71,8 @@ async def refresh(
 
 @router.post("/auth/sign-out", status_code=status.HTTP_204_NO_CONTENT)
 async def sign_out(
+    org_slug: str,
+    portal_slug: str,
     data: CitizenRefreshRequest,
     redis: Annotated[aioredis.Redis, Depends(get_redis)],
 ):
@@ -85,6 +91,8 @@ async def forgot_password(
 
 @router.post("/auth/reset-password", status_code=status.HTTP_204_NO_CONTENT)
 async def reset_password(
+    org_slug: str,
+    portal_slug: str,
     data: CitizenResetPasswordRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -93,6 +101,8 @@ async def reset_password(
 
 @router.get("/auth/me", response_model=CitizenOut)
 async def get_me(
+    org_slug: str,
+    portal_slug: str,
     citizen: Annotated[Citizen, Depends(get_current_citizen)],
 ):
     return citizen
@@ -111,6 +121,8 @@ async def list_request_types(
 
 @router.get("/requests", response_model=list[CitizenRequestOut])
 async def list_my_requests(
+    org_slug: str,
+    portal_slug: str,
     db: Annotated[AsyncSession, Depends(get_db)],
     citizen: Annotated[Citizen, Depends(get_current_citizen)],
 ):
@@ -119,6 +131,8 @@ async def list_my_requests(
 
 @router.post("/requests", response_model=CitizenRequestOut, status_code=status.HTTP_201_CREATED)
 async def create_request(
+    org_slug: str,
+    portal_slug: str,
     data: CitizenRequestCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     citizen: Annotated[Citizen, Depends(get_current_citizen)],
@@ -128,6 +142,8 @@ async def create_request(
 
 @router.get("/requests/{request_id}", response_model=CitizenRequestOut)
 async def get_request(
+    org_slug: str,
+    portal_slug: str,
     request_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
     citizen: Annotated[Citizen, Depends(get_current_citizen)],

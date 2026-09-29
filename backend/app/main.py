@@ -16,6 +16,7 @@ app = FastAPI(
     title="Portalu API",
     version="2.3.0",
     lifespan=lifespan,
+    servers=[{"url": "https://portalu-production.up.railway.app", "description": "Production"}],
 )
 
 app.add_middleware(
