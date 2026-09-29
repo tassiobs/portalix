@@ -8,7 +8,7 @@ from app.core.slugify import slugify
 from app.db.models.citizen import Citizen
 from app.db.models.portal import Portal, PortalUserRole
 from app.db.models.portal_request import Request, RequestFieldValue, RequestType, RequestTypeField, TaskDefinition, TaskInstance
-from app.db.models.rbac import OrgRole, OrgUserRole
+from app.db.models.rbac import OrgRole
 from app.db.models.user import OrgUser
 from app.schemas.portal import (
     AssignPortalUserRequest,
@@ -306,14 +306,14 @@ async def delete_request_type_field(
 # --- Portal Requests (admin view) ---
 
 def _assigned_request_ids(user_id: uuid.UUID):
-    """Subquery: request IDs where the user is assigned directly or via a matching role."""
+    """Subquery: request IDs where the user is assigned directly or via a matching portal role."""
     by_user = select(TaskInstance.request_id).where(TaskInstance.assigned_to_user_id == user_id)
     by_role = (
         select(TaskInstance.request_id)
         .join(TaskDefinition, TaskInstance.task_definition_id == TaskDefinition.id)
         .join(OrgRole, OrgRole.name == TaskDefinition.assignee_role)
-        .join(OrgUserRole, OrgUserRole.role_id == OrgRole.id)
-        .where(OrgUserRole.user_id == user_id)
+        .join(PortalUserRole, PortalUserRole.role_id == OrgRole.id)
+        .where(PortalUserRole.user_id == user_id)
     )
     return select(TaskInstance.request_id).where(
         or_(
