@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.user import UserSummary
 
@@ -16,7 +17,7 @@ class OrgOut(BaseModel):
 
 
 class OrgUpdate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=2, max_length=100, description="Display name of the organization", example="Acme Corp")
 
 
 class LockoutSettingsOut(BaseModel):
@@ -26,9 +27,9 @@ class LockoutSettingsOut(BaseModel):
 
 
 class LockoutSettingsUpdate(BaseModel):
-    enabled: bool | None = None
-    max_failed_attempts: int | None = None
-    lockout_duration_minutes: int | None = None
+    enabled: bool | None = Field(None, description="Whether account lockout is enabled")
+    max_failed_attempts: int | None = Field(None, ge=1, le=20, description="Number of failed login attempts before lockout", example=5)
+    lockout_duration_minutes: int | None = Field(None, ge=1, description="How long the account remains locked in minutes", example=30)
 
 
 class MfaSettingsOut(BaseModel):
@@ -37,8 +38,8 @@ class MfaSettingsOut(BaseModel):
 
 
 class MfaSettingsUpdate(BaseModel):
-    enabled: bool | None = None
-    required: bool | None = None
+    enabled: bool | None = Field(None, description="Whether MFA is available for users")
+    required: bool | None = Field(None, description="Whether MFA is mandatory for all users")
 
 
 class OrgSettingsOut(BaseModel):
@@ -52,6 +53,8 @@ class OrgSettingsOut(BaseModel):
 
 
 class OrgSettingsUpdate(BaseModel):
-    citizen_identity_scope: str | None = None
-    lockout: LockoutSettingsUpdate | None = None
-    mfa: MfaSettingsUpdate | None = None
+    citizen_identity_scope: Literal["portal", "org"] | None = Field(
+        None, description="Controls whether citizen accounts are scoped to a single portal or shared across the org"
+    )
+    lockout: LockoutSettingsUpdate | None = Field(None, description="Account lockout policy settings")
+    mfa: MfaSettingsUpdate | None = Field(None, description="Multi-factor authentication settings")

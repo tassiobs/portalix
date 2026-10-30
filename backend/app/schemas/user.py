@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.schemas.rbac import RoleOut
 
@@ -28,20 +29,20 @@ class UserOut(BaseModel):
 
 
 class OrgUserCreate(BaseModel):
-    name: str | None = None
-    email: EmailStr
+    name: str | None = Field(None, max_length=100, description="Full name of the user", example="Jane Doe")
+    email: EmailStr = Field(..., description="Email address — an invitation will be sent to this address", example="jane@acme.com")
 
 
 class OrgUserUpdate(BaseModel):
-    name: str | None = None
-    status: str | None = None
+    name: str | None = Field(None, max_length=100, description="Updated full name of the user")
+    status: Literal["active", "inactive"] | None = Field(None, description="Updated status of the user account")
 
 
 class PaginationOut(BaseModel):
-    page: int
-    per_page: int
-    total: int
-    total_pages: int
+    page: int = Field(..., ge=1, description="Current page number")
+    per_page: int = Field(..., ge=1, le=100, description="Number of items per page")
+    total: int = Field(..., ge=0, description="Total number of items across all pages")
+    total_pages: int = Field(..., ge=0, description="Total number of pages")
 
 
 class OrgUserPage(BaseModel):

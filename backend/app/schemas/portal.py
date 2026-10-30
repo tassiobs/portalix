@@ -1,19 +1,20 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PortalCreate(BaseModel):
-    name: str
-    description: str | None = None
-    domain: str | None = None
+    name: str = Field(..., min_length=2, max_length=100, description="Display name of the portal", example="Citizens Portal")
+    description: str | None = Field(None, max_length=500, description="Optional description of the portal's purpose", example="Public-facing portal for citizen service requests")
+    domain: str | None = Field(None, description="Custom domain for the portal (e.g. portal.acme.com)", example="portal.acme.com")
 
 
 class PortalUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    domain: str | None = None
+    name: str | None = Field(None, min_length=2, max_length=100, description="Display name of the portal", example="Citizens Portal")
+    description: str | None = Field(None, max_length=500, description="Optional description of the portal's purpose")
+    domain: str | None = Field(None, description="Custom domain for the portal", example="portal.acme.com")
 
 
 class PortalOut(BaseModel):
@@ -29,27 +30,31 @@ class PortalOut(BaseModel):
 
 
 class AssignPortalUserRequest(BaseModel):
-    user_id: uuid.UUID
-    role_id: uuid.UUID
+    user_id: uuid.UUID = Field(..., description="ID of the user to assign to the portal")
+    role_id: uuid.UUID = Field(..., description="ID of the portal-level role to assign")
 
 
 VALID_FIELD_TYPES = {"text", "textarea", "number", "date", "select"}
 
 
 class RequestTypeFieldCreate(BaseModel):
-    label: str
-    field_type: str
-    required: bool = False
-    order: int = 0
-    options: list[str] | None = None
+    label: str = Field(..., min_length=1, max_length=200, description="Display label for the field", example="Full Name")
+    field_type: Literal["text", "textarea", "number", "date", "select"] = Field(
+        ..., description="Input type for the field"
+    )
+    required: bool = Field(False, description="Whether this field must be filled in when submitting a request")
+    order: int = Field(0, ge=0, description="Display order position (0-indexed)", example=0)
+    options: list[str] | None = Field(None, description="Allowed options — required when field_type is 'select'", example=["Option A", "Option B"])
 
 
 class RequestTypeFieldUpdate(BaseModel):
-    label: str | None = None
-    field_type: str | None = None
-    required: bool | None = None
-    order: int | None = None
-    options: list[str] | None = None
+    label: str | None = Field(None, min_length=1, max_length=200, description="Display label for the field")
+    field_type: Literal["text", "textarea", "number", "date", "select"] | None = Field(
+        None, description="Input type for the field"
+    )
+    required: bool | None = Field(None, description="Whether this field must be filled in when submitting a request")
+    order: int | None = Field(None, ge=0, description="Display order position (0-indexed)")
+    options: list[str] | None = Field(None, description="Allowed options — required when field_type is 'select'")
 
 
 class RequestTypeFieldOut(BaseModel):
@@ -66,13 +71,13 @@ class RequestTypeFieldOut(BaseModel):
 
 
 class RequestTypeCreate(BaseModel):
-    name: str
-    description: str | None = None
+    name: str = Field(..., min_length=2, max_length=100, description="Name of the request type", example="Building Permit")
+    description: str | None = Field(None, max_length=500, description="Optional description of what this request type is for", example="Request a permit for construction or renovation")
 
 
 class RequestTypeUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
+    name: str | None = Field(None, min_length=2, max_length=100, description="Name of the request type")
+    description: str | None = Field(None, max_length=500, description="Optional description")
 
 
 class RequestTypeOut(BaseModel):
@@ -96,8 +101,8 @@ class RequestFieldValueOut(BaseModel):
 
 
 class RequestFieldValueSubmit(BaseModel):
-    field_id: uuid.UUID
-    value: str | None = None
+    field_id: uuid.UUID = Field(..., description="ID of the request type field being answered")
+    value: str | None = Field(None, max_length=5000, description="Value submitted for this field")
 
 
 class RequestOut(BaseModel):
@@ -115,21 +120,23 @@ class RequestOut(BaseModel):
 
 
 class RequestUpdate(BaseModel):
-    status: str | None = None
-    title: str | None = None
+    status: Literal["open", "in_progress", "rejected", "closed"] | None = Field(
+        None, description="Updated status for the request"
+    )
+    title: str | None = Field(None, min_length=2, max_length=200, description="Updated title for the request")
 
 
 # --- Workflow schemas ---
 
 class TaskDefinitionIn(BaseModel):
-    key: str
-    name: str
-    department_id: uuid.UUID | None = None
-    assignee_role: str | None = None
-    assignee_user_id: uuid.UUID | None = None
-    deadline_offset_hours: int | None = None
-    depends_on: list[str] = []
-    fan_out: bool = False
+    key: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z0-9_]+$", description="Unique key identifying this task within the workflow (lowercase, underscores allowed)", example="review_documents")
+    name: str = Field(..., min_length=2, max_length=200, description="Human-readable name for the task", example="Review Documents")
+    department_id: uuid.UUID | None = Field(None, description="ID of the department responsible for this task")
+    assignee_role: str | None = Field(None, description="Role name to auto-assign this task to", example="reviewer")
+    assignee_user_id: uuid.UUID | None = Field(None, description="Specific user to assign this task to — takes precedence over assignee_role")
+    deadline_offset_hours: int | None = Field(None, ge=1, description="Hours from task activation until deadline", example=48)
+    depends_on: list[str] = Field([], description="List of task keys that must be completed before this task activates", example=["initial_review"])
+    fan_out: bool = Field(False, description="If true, creates one task instance per assignee when multiple users match the role")
 
 
 class TaskDefinitionOut(BaseModel):
@@ -147,7 +154,7 @@ class TaskDefinitionOut(BaseModel):
 
 
 class WorkflowIn(BaseModel):
-    tasks: list[TaskDefinitionIn]
+    tasks: list[TaskDefinitionIn] = Field(..., description="Ordered list of task definitions that make up this workflow")
 
 
 class WorkflowOut(BaseModel):
@@ -160,9 +167,9 @@ class WorkflowOut(BaseModel):
 
 
 class TaskCommentIn(BaseModel):
-    body: str | None = None
-    file_url: str | None = None
-    file_name: str | None = None
+    body: str | None = Field(None, max_length=5000, description="Text content of the comment", example="Documents look good, proceeding to approval.")
+    file_url: str | None = Field(None, description="URL of an attached file")
+    file_name: str | None = Field(None, max_length=255, description="Original filename of the attachment", example="permit_docs.pdf")
 
 
 class TaskCommentOut(BaseModel):
@@ -194,9 +201,11 @@ class TaskInstanceOut(BaseModel):
 
 
 class TaskInstanceUpdate(BaseModel):
-    assigned_to_user_id: uuid.UUID | None = None
+    assigned_to_user_id: uuid.UUID | None = Field(None, description="ID of the user to assign this task to")
 
 
 class TaskCompleteIn(BaseModel):
-    outcome: str
-    notes: str | None = None
+    outcome: Literal["approved", "rejected", "clarification_requested"] = Field(
+        ..., description="Outcome of the task completion"
+    )
+    notes: str | None = Field(None, max_length=5000, description="Optional notes about the completion decision", example="All documents verified and approved.")
