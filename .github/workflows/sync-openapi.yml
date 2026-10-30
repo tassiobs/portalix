@@ -1,0 +1,38 @@
+name: Sync openapi.json to portalix-docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - openapi.json
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout portalu
+        uses: actions/checkout@v4
+
+      - name: Checkout portalix-docs
+        uses: actions/checkout@v4
+        with:
+          repository: tassiobs/portalix-docs
+          token: ${{ secrets.PORTALIX_DOCS_PAT }}
+          path: portalix-docs
+
+      - name: Copy openapi.json
+        run: cp openapi.json portalix-docs/openapi.json
+
+      - name: Commit and push if changed
+        working-directory: portalix-docs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add openapi.json
+          if git diff --cached --quiet; then
+            echo "No changes to openapi.json"
+          else
+            git commit -m "chore: sync openapi.json from portalu"
+            git push
+          fi
