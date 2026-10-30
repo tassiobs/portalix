@@ -18,6 +18,7 @@ class OrgOut(BaseModel):
 
 class OrgUpdate(BaseModel):
     name: str = Field(..., min_length=2, max_length=100, description="Display name of the organization", example="Acme Corp")
+    slug: str | None = Field(None, min_length=2, max_length=100, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", description="URL-friendly identifier for the organization. Must be globally unique.", example="acme-corp")
 
 
 class LockoutSettingsOut(BaseModel):

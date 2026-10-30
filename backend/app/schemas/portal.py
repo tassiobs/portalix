@@ -7,12 +7,14 @@ from pydantic import BaseModel, Field
 
 class PortalCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=100, description="Display name of the portal", example="Citizens Portal")
+    slug: str | None = Field(None, min_length=2, max_length=100, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", description="URL-friendly identifier for the portal. Auto-generated from name if not provided.", example="citizens-portal")
     description: str | None = Field(None, max_length=500, description="Optional description of the portal's purpose", example="Public-facing portal for citizen service requests")
     domain: str | None = Field(None, description="Custom domain for the portal (e.g. portal.acme.com)", example="portal.acme.com")
 
 
 class PortalUpdate(BaseModel):
     name: str | None = Field(None, min_length=2, max_length=100, description="Display name of the portal", example="Citizens Portal")
+    slug: str | None = Field(None, min_length=2, max_length=100, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", description="URL-friendly identifier for the portal. Must be unique within the org.", example="citizens-portal")
     description: str | None = Field(None, max_length=500, description="Optional description of the portal's purpose")
     domain: str | None = Field(None, description="Custom domain for the portal", example="portal.acme.com")
 
@@ -25,6 +27,15 @@ class PortalOut(BaseModel):
     description: str | None
     domain: str | None
     created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PortalPublicOut(BaseModel):
+    name: str
+    slug: str
+    description: str | None
+    org_slug: str
 
     model_config = {"from_attributes": True}
 

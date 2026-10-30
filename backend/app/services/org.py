@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.slugify import slugify
 from app.db.models.org import OrgSettings, Organization
 from app.db.models.user import OrgUser
 from app.schemas.org import (
@@ -34,6 +35,11 @@ async def update_org(db: AsyncSession, org_id: uuid.UUID, data: OrgUpdate) -> Or
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
 
     org.name = data.name
+    if data.slug is not None:
+        existing = (await db.execute(select(Organization).where(Organization.slug == data.slug, Organization.id != org_id))).scalar_one_or_none()
+        if existing:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Org slug already in use")
+        org.slug = data.slug
     await db.commit()
     await db.refresh(org)
     return OrgOut.model_validate(org)

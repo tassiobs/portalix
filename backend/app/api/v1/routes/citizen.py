@@ -19,11 +19,28 @@ from app.schemas.citizen import (
     CitizenSignUpResponse,
     CitizenVerifyEmailRequest,
 )
-from app.schemas.portal import RequestTypeOut
+from app.schemas.portal import PortalPublicOut, RequestTypeOut
 from app.services import citizen_auth as auth_service
 from app.services import citizen_requests as request_service
 
 router = APIRouter(prefix="/citizen/{org_slug}/{portal_slug}", tags=["citizen"])
+
+
+@router.get("", response_model=PortalPublicOut, summary="Get public portal info")
+async def get_portal_info(
+    org_slug: str,
+    portal_slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    from app.services.citizen_auth import _get_org_by_slug, _get_portal_by_slug
+    org = await _get_org_by_slug(db, org_slug)
+    portal = await _get_portal_by_slug(db, org_slug, portal_slug)
+    return PortalPublicOut(
+        name=portal.name,
+        slug=portal.slug,
+        description=portal.description,
+        org_slug=org.slug,
+    )
 
 
 @router.post("/auth/sign-up", response_model=CitizenSignUpResponse, status_code=status.HTTP_201_CREATED)

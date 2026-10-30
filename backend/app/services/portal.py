@@ -47,12 +47,17 @@ async def list_portals(db: AsyncSession, org_id: uuid.UUID) -> list[PortalOut]:
 
 
 async def create_portal(db: AsyncSession, org_id: uuid.UUID, data: PortalCreate, created_by: OrgUser) -> PortalOut:
-    base_slug = slugify(data.name)
-    slug = base_slug
-    suffix = 1
-    while (await db.execute(select(Portal).where(Portal.org_id == org_id, Portal.slug == slug))).scalar_one_or_none():
-        slug = f"{base_slug}-{suffix}"
-        suffix += 1
+    if data.slug:
+        slug = data.slug
+        if (await db.execute(select(Portal).where(Portal.org_id == org_id, Portal.slug == slug))).scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Portal slug already in use within this org")
+    else:
+        base_slug = slugify(data.name)
+        slug = base_slug
+        suffix = 1
+        while (await db.execute(select(Portal).where(Portal.org_id == org_id, Portal.slug == slug))).scalar_one_or_none():
+            slug = f"{base_slug}-{suffix}"
+            suffix += 1
 
     if data.domain:
         existing = (await db.execute(select(Portal).where(Portal.domain == data.domain))).scalar_one_or_none()
@@ -78,6 +83,11 @@ async def update_portal(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUI
 
     if data.name is not None:
         portal.name = data.name
+    if data.slug is not None:
+        existing = (await db.execute(select(Portal).where(Portal.org_id == org_id, Portal.slug == data.slug, Portal.id != portal_id))).scalar_one_or_none()
+        if existing:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Portal slug already in use within this org")
+        portal.slug = data.slug
     if data.description is not None:
         portal.description = data.description
     if data.domain is not None:
