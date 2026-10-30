@@ -19,6 +19,7 @@ from app.schemas.portal import (
     RequestTypeUpdate,
     RequestOut,
     RequestUpdate,
+    RequestFilters,
     WorkflowIn,
     WorkflowOut,
     TaskInstanceOut,
@@ -194,9 +195,10 @@ async def list_portal_requests(
     portal_id: uuid.UUID,
     current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read", "portal.requests:read_all"))],
     db: Annotated[AsyncSession, Depends(get_db)],
+    filters: Annotated[RequestFilters, Depends()],
 ):
     read_all = await has_portal_permission(portal_id, current_user, db, "portal.requests:read_all")
-    return await portal_service.list_portal_requests(db, current_user.org_id, portal_id, current_user.id, read_all)
+    return await portal_service.list_portal_requests(db, current_user.org_id, portal_id, current_user.id, read_all, filters)
 
 
 @router.get("/{portal_id}/requests/{request_id}", response_model=RequestOut, tags=["Portal Requests"])

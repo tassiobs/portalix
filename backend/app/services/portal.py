@@ -24,6 +24,7 @@ from app.schemas.portal import (
     RequestTypeUpdate,
     RequestOut,
     RequestUpdate,
+    RequestFilters,
     VALID_FIELD_TYPES,
 )
 from app.services.rbac import PORTAL_PERMISSIONS
@@ -333,8 +334,9 @@ def _assigned_request_ids(user_id: uuid.UUID):
     )
 
 
-async def list_portal_requests(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID, user_id: uuid.UUID, read_all: bool) -> list[RequestOut]:
+async def list_portal_requests(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID, user_id: uuid.UUID, read_all: bool, filters: RequestFilters) -> list[RequestOut]:
     from sqlalchemy.orm import selectinload
+    from datetime import datetime, timezone
     await _get_portal(db, org_id, portal_id)
     query = (
         select(Request)
@@ -345,8 +347,16 @@ async def list_portal_requests(db: AsyncSession, org_id: uuid.UUID, portal_id: u
         )
         .order_by(Request.created_at.desc())
     )
-    if not read_all:
+    if not read_all or filters.assigned_to_me:
         query = query.where(Request.id.in_(_assigned_request_ids(user_id)))
+    if filters.status is not None:
+        query = query.where(Request.status == filters.status)
+    if filters.request_type_id is not None:
+        query = query.where(Request.request_type_id == filters.request_type_id)
+    if filters.from_date is not None:
+        query = query.where(Request.created_at >= datetime.fromisoformat(filters.from_date).replace(tzinfo=timezone.utc))
+    if filters.to_date is not None:
+        query = query.where(Request.created_at <= datetime.fromisoformat(filters.to_date).replace(tzinfo=timezone.utc))
     result = await db.execute(query)
     return [_request_to_out(r) for r in result.scalars().all()]
 

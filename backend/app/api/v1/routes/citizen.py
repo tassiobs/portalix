@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, status
@@ -142,8 +142,9 @@ async def list_my_requests(
     portal_slug: str,
     db: Annotated[AsyncSession, Depends(get_db)],
     citizen: Annotated[Citizen, Depends(get_current_citizen)],
+    status: Literal["open", "in_progress", "rejected", "closed"] | None = None,
 ):
-    return await request_service.list_citizen_requests(db, citizen.id, citizen.portal_id)
+    return await request_service.list_citizen_requests(db, citizen.id, citizen.portal_id, status)
 
 
 @router.post("/requests", response_model=CitizenRequestOut, status_code=status.HTTP_201_CREATED, tags=["Citizen Requests"])

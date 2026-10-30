@@ -45,8 +45,8 @@ async def list_request_types(db: AsyncSession, portal_id: uuid.UUID) -> list[Req
     return [RequestTypeOut.model_validate(rt) for rt in result.scalars().all()]
 
 
-async def list_citizen_requests(db: AsyncSession, citizen_id: uuid.UUID, portal_id: uuid.UUID) -> list[CitizenRequestOut]:
-    result = await db.execute(
+async def list_citizen_requests(db: AsyncSession, citizen_id: uuid.UUID, portal_id: uuid.UUID, status: str | None = None) -> list[CitizenRequestOut]:
+    query = (
         select(Request)
         .where(Request.citizen_id == citizen_id, Request.portal_id == portal_id)
         .options(
@@ -55,6 +55,9 @@ async def list_citizen_requests(db: AsyncSession, citizen_id: uuid.UUID, portal_
         )
         .order_by(Request.created_at.desc())
     )
+    if status is not None:
+        query = query.where(Request.status == status)
+    result = await db.execute(query)
     return [_request_to_out(r) for r in result.scalars().all()]
 
 

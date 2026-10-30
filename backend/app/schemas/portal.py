@@ -137,6 +137,14 @@ class RequestUpdate(BaseModel):
     title: str | None = Field(None, min_length=2, max_length=200, description="Updated title for the request")
 
 
+class RequestFilters(BaseModel):
+    status: Literal["open", "in_progress", "rejected", "closed"] | None = Field(None, description="Filter by request status")
+    request_type_id: uuid.UUID | None = Field(None, description="Filter by request type")
+    assigned_to_me: bool = Field(False, description="If true, return only requests where the current user has an active task assigned")
+    from_date: str | None = Field(None, description="Filter requests submitted on or after this date (ISO 8601, e.g. 2024-01-01)")
+    to_date: str | None = Field(None, description="Filter requests submitted on or before this date (ISO 8601, e.g. 2024-12-31)")
+
+
 # --- Workflow schemas ---
 
 class TaskDefinitionIn(BaseModel):
