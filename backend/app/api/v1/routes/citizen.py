@@ -23,10 +23,10 @@ from app.schemas.portal import PortalPublicOut, RequestTypeOut
 from app.services import citizen_auth as auth_service
 from app.services import citizen_requests as request_service
 
-router = APIRouter(prefix="/citizen/{org_slug}/{portal_slug}", tags=["citizen"])
+router = APIRouter(prefix="/citizen/{org_slug}/{portal_slug}")
 
 
-@router.get("", response_model=PortalPublicOut, summary="Get public portal info")
+@router.get("", response_model=PortalPublicOut, summary="Get public portal info", tags=["Citizen"])
 async def get_portal_info(
     org_slug: str,
     portal_slug: str,
@@ -43,7 +43,7 @@ async def get_portal_info(
     )
 
 
-@router.post("/auth/sign-up", response_model=CitizenSignUpResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/auth/sign-up", response_model=CitizenSignUpResponse, status_code=status.HTTP_201_CREATED, tags=["Citizen Auth"])
 async def sign_up(
     org_slug: str,
     portal_slug: str,
@@ -54,7 +54,7 @@ async def sign_up(
     return await auth_service.sign_up(db, redis, org_slug, portal_slug, data)
 
 
-@router.post("/auth/verify-email")
+@router.post("/auth/verify-email", tags=["Citizen Auth"])
 async def verify_email(
     org_slug: str,
     portal_slug: str,
@@ -64,7 +64,7 @@ async def verify_email(
     return await auth_service.verify_email(db, data.token)
 
 
-@router.post("/auth/sign-in", response_model=CitizenAuthResponse)
+@router.post("/auth/sign-in", response_model=CitizenAuthResponse, tags=["Citizen Auth"])
 async def sign_in(
     org_slug: str,
     portal_slug: str,
@@ -75,7 +75,7 @@ async def sign_in(
     return await auth_service.sign_in(db, redis, org_slug, portal_slug, data.email, data.password)
 
 
-@router.post("/auth/refresh", response_model=CitizenAuthResponse)
+@router.post("/auth/refresh", response_model=CitizenAuthResponse, tags=["Citizen Auth"])
 async def refresh(
     org_slug: str,
     portal_slug: str,
@@ -86,7 +86,7 @@ async def refresh(
     return await auth_service.refresh_tokens(db, redis, data.refresh_token)
 
 
-@router.post("/auth/sign-out", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/auth/sign-out", status_code=status.HTTP_204_NO_CONTENT, tags=["Citizen Auth"])
 async def sign_out(
     org_slug: str,
     portal_slug: str,
@@ -96,7 +96,7 @@ async def sign_out(
     await auth_service.sign_out(redis, data.refresh_token)
 
 
-@router.post("/auth/forgot-password")
+@router.post("/auth/forgot-password", tags=["Citizen Auth"])
 async def forgot_password(
     org_slug: str,
     portal_slug: str,
@@ -106,7 +106,7 @@ async def forgot_password(
     return await auth_service.forgot_password(db, org_slug, portal_slug, data.email)
 
 
-@router.post("/auth/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/auth/reset-password", status_code=status.HTTP_204_NO_CONTENT, tags=["Citizen Auth"])
 async def reset_password(
     org_slug: str,
     portal_slug: str,
@@ -116,7 +116,7 @@ async def reset_password(
     await auth_service.reset_password(db, data.token, data.new_password)
 
 
-@router.get("/auth/me", response_model=CitizenOut)
+@router.get("/auth/me", response_model=CitizenOut, tags=["Citizen Auth"])
 async def get_me(
     org_slug: str,
     portal_slug: str,
@@ -125,7 +125,7 @@ async def get_me(
     return citizen
 
 
-@router.get("/request-types", response_model=list[RequestTypeOut])
+@router.get("/request-types", response_model=list[RequestTypeOut], tags=["Citizen Request Types"])
 async def list_request_types(
     org_slug: str,
     portal_slug: str,
@@ -136,7 +136,7 @@ async def list_request_types(
     return await request_service.list_request_types(db, portal.id)
 
 
-@router.get("/requests", response_model=list[CitizenRequestOut])
+@router.get("/requests", response_model=list[CitizenRequestOut], tags=["Citizen Requests"])
 async def list_my_requests(
     org_slug: str,
     portal_slug: str,
@@ -146,7 +146,7 @@ async def list_my_requests(
     return await request_service.list_citizen_requests(db, citizen.id, citizen.portal_id)
 
 
-@router.post("/requests", response_model=CitizenRequestOut, status_code=status.HTTP_201_CREATED)
+@router.post("/requests", response_model=CitizenRequestOut, status_code=status.HTTP_201_CREATED, tags=["Citizen Requests"])
 async def create_request(
     org_slug: str,
     portal_slug: str,
@@ -157,7 +157,7 @@ async def create_request(
     return await request_service.create_request(db, citizen, data)
 
 
-@router.get("/requests/{request_id}", response_model=CitizenRequestOut)
+@router.get("/requests/{request_id}", response_model=CitizenRequestOut, tags=["Citizen Requests"])
 async def get_request(
     org_slug: str,
     portal_slug: str,
