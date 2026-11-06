@@ -39,6 +39,8 @@ Content-Type: application/json
 
 {% callout type="warning" title="Verification is required before sign-in" %}
 `POST /auth/sign-in` will return an error until the email address is verified. If you're running a bootstrap script that signs up and then immediately signs in, it will fail unless the verification step is completed first. You must handle the verification redirect (or manually verify) before the account is usable.
+
+**`verification_token` is only returned in non-production environments.** On the live API it will not be present in the sign-up response — email verification is the only path. Do not rely on it in production bootstrap scripts.
 {% /callout %}
 
 Then sign in to get your access token:
@@ -146,6 +148,24 @@ Content-Type: application/json
 ```
 
 Supported field types: `text`, `textarea`, `number`, `date`, `select`.
+
+For `select` fields, `options` must be an array of plain strings — not `{value, label}` objects:
+
+```http
+POST /api/v1/org/portals/{portal_id}/request-types/{rt_id}/fields
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "label": "Property Type",
+  "field_type": "select",
+  "required": true,
+  "order": 1,
+  "options": ["Residential", "Commercial", "Industrial"]
+}
+```
+
+Passing objects (e.g. `{"value": "residential", "label": "Residential"}`) will result in a `422` error.
 
 ### Optional — set up a workflow
 

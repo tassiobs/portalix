@@ -29,6 +29,15 @@ Content-Type: application/json
 
 See the [Error Handling](./error-handling) guide for how to detect expiry and trigger this flow automatically.
 
+**The sign-in response does not include `org_slug`.** If you need it (e.g. to construct citizen portal URLs like `/citizen/{org_slug}/{portal_slug}/...`), fetch it immediately after sign-in and cache it for the session:
+
+```http
+GET /api/v1/org
+Authorization: Bearer <access_token>
+```
+
+The response includes `slug` alongside the org name and settings.
+
 ---
 
 ## Screen 2 — Portal List
