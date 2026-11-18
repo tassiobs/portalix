@@ -74,6 +74,29 @@ Content-Type: application/json
 
 On success, redirect to the Sign In screen. The user then signs in normally to receive their `access_token`.
 
+### Resend verification
+
+If the user didn't receive the email or the token expired, resend it:
+
+```http
+POST /api/v1/auth/resend-verification
+Content-Type: application/json
+
+{ "email": "jane@springfield.gov" }
+```
+
+This invalidates the previous token and sends a fresh verification email. Show a "Resend email" button on both the "Check your email" screen and the verification failure screen.
+
+### Email link URL — `FRONTEND_URL` backend config
+
+The verification link in the email is built from the `FRONTEND_URL` environment variable on the backend:
+
+```
+{FRONTEND_URL}/verify-email?token=...
+```
+
+**You must set `FRONTEND_URL` to your frontend's domain before going live.** Until then it defaults to the internal staging URL and verification emails will link to the wrong place. Set it in your backend environment config (Railway, Render, etc.) and redeploy.
+
 {% callout type="info" title="Dev / staging environments only" %}
 In non-production environments the sign-up response includes a `verification_token` field so you can skip the email step during development. This field is never present on the live API.
 {% /callout %}
