@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3008",
     "build": "next build",
+    "vercel-build": "node -e \"require('fs').cpSync('content', 'public/content', {recursive: true})\" && next build",
     "start": "next start",
     "lint": "eslint"
   },
