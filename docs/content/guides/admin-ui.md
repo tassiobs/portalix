@@ -18,9 +18,12 @@ Content-Type: application/json
   "org_name": "City of Springfield",
   "name": "Jane Doe",
   "email": "jane@springfield.gov",
-  "password": "s3cur3pass!"
+  "password": "s3cur3pass!",
+  "redirect_url": "https://your-app.com/verify-email"
 }
 ```
+
+`redirect_url` is optional but recommended — the backend uses it to build the verification email link (`{redirect_url}?token=...`). If omitted, it falls back to the server-wide default.
 
 **Response** (`200`):
 
@@ -82,20 +85,13 @@ If the user didn't receive the email or the token expired, resend it:
 POST /api/v1/auth/resend-verification
 Content-Type: application/json
 
-{ "email": "jane@springfield.gov" }
+{
+  "email": "jane@springfield.gov",
+  "redirect_url": "https://your-app.com/verify-email"
+}
 ```
 
-This invalidates the previous token and sends a fresh verification email. Show a "Resend email" button on both the "Check your email" screen and the verification failure screen.
-
-### Email link URL — `FRONTEND_URL` backend config
-
-The verification link in the email is built from the `FRONTEND_URL` environment variable on the backend:
-
-```
-{FRONTEND_URL}/verify-email?token=...
-```
-
-**You must set `FRONTEND_URL` to your frontend's domain before going live.** Until then it defaults to the internal staging URL and verification emails will link to the wrong place. Set it in your backend environment config (Railway, Render, etc.) and redeploy.
+`redirect_url` is optional — if omitted, the backend reuses the URL from the original sign-up token, then falls back to the server default. Show a "Resend email" button on both the "Check your email" screen and the verification failure screen.
 
 {% callout type="info" title="Dev / staging environments only" %}
 In non-production environments the sign-up response includes a `verification_token` field so you can skip the email step during development. This field is never present on the live API.
