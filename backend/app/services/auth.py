@@ -163,11 +163,12 @@ async def sign_up(db: AsyncSession, redis: aioredis.Redis, data: SignUpRequest) 
         user_id=user.id,
         token=token_value,
         expires_at=datetime.utcnow() + timedelta(hours=24),
+        redirect_url=data.redirect_url,
     )
     db.add(ev_token)
     await db.flush()
 
-    send_verification_email(data.email, token_value)
+    send_verification_email(data.email, token_value, redirect_url=data.redirect_url)
 
     await db.commit()
 
@@ -203,7 +204,7 @@ async def verify_email(db: AsyncSession, token: str) -> dict:
     return {"message": "Email verified. You can now sign in."}
 
 
-async def resend_verification(db: AsyncSession, email: str) -> dict:
+async def resend_verification(db: AsyncSession, email: str, redirect_url: str | None = None) -> dict:
     result = await db.execute(select(OrgUser).where(OrgUser.email == email))
     user = result.scalar_one_or_none()
 
@@ -211,16 +212,29 @@ async def resend_verification(db: AsyncSession, email: str) -> dict:
         # Silent — return generic message
         return {"message": "If the email exists and is unverified, a token has been sent."}
 
+    # Fall back to the redirect_url stored on the most recent token for this user
+    if not redirect_url:
+        prev = await db.execute(
+            select(EmailVerificationToken)
+            .where(EmailVerificationToken.user_id == user.id)
+            .order_by(EmailVerificationToken.expires_at.desc())
+            .limit(1)
+        )
+        prev_token = prev.scalar_one_or_none()
+        if prev_token:
+            redirect_url = prev_token.redirect_url
+
     token_value = generate_secure_token()
     ev_token = EmailVerificationToken(
         user_id=user.id,
         token=token_value,
         expires_at=datetime.utcnow() + timedelta(hours=24),
+        redirect_url=redirect_url,
     )
     db.add(ev_token)
     await db.commit()
 
-    send_verification_email(user.email, token_value)
+    send_verification_email(user.email, token_value, redirect_url=redirect_url)
 
     return {"message": "If the email exists and is unverified, a new link has been sent."}
 

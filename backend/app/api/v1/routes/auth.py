@@ -12,6 +12,7 @@ from app.schemas.auth import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,
     RefreshRequest,
+    ResendVerificationRequest,
     ResetPasswordRequest,
     SignInRequest,
     SignUpRequest,
@@ -50,10 +51,10 @@ async def verify_email(
 
 @router.post("/resend-verification")
 async def resend_verification(
-    body: ForgotPasswordRequest,  # reuse email field
+    body: ResendVerificationRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    return await auth_service.resend_verification(db, body.email)
+    return await auth_service.resend_verification(db, body.email, body.redirect_url)
 
 
 @router.post("/sign-in", response_model=AuthResponse)

@@ -24,8 +24,10 @@ def _send(to: str, subject: str, html: str, raise_on_failure: bool = False) -> N
             )
 
 
-def send_verification_email(to: str, token: str, org_slug: str | None = None, portal_slug: str | None = None) -> None:
-    if org_slug and portal_slug:
+def send_verification_email(to: str, token: str, redirect_url: str | None = None, org_slug: str | None = None, portal_slug: str | None = None) -> None:
+    if redirect_url:
+        url = f"{redirect_url}?token={token}"
+    elif org_slug and portal_slug:
         url = f"{settings.FRONTEND_URL}/{org_slug}/{portal_slug}/verify-email?token={token}"
     else:
         url = f"{settings.FRONTEND_URL}/verify-email?token={token}"

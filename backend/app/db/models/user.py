@@ -54,6 +54,7 @@ class EmailVerificationToken(Base):
     token: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    redirect_url: Mapped[str | None] = mapped_column(String, nullable=True)
 
     user: Mapped["OrgUser"] = relationship("OrgUser", back_populates="email_verification_tokens")
 

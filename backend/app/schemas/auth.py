@@ -9,6 +9,7 @@ class SignUpRequest(BaseModel):
     name: str | None = Field(None, max_length=100, description="Full name of the user", example="Jane Doe")
     email: EmailStr = Field(..., description="User's email address", example="jane@acme.com")
     password: str = Field(..., min_length=8, description="Password (minimum 8 characters)", example="s3cur3pass!")
+    redirect_url: str | None = Field(None, description="Base URL for the verification email link (e.g. https://your-app.com/verify-email). Falls back to the server default if omitted.", example="https://your-app.com/verify-email")
 
 
 class SignUpResponse(BaseModel):
@@ -32,6 +33,11 @@ class AuthResponse(BaseModel):
 class SignInRequest(BaseModel):
     email: EmailStr = Field(..., description="User's email address", example="jane@acme.com")
     password: str = Field(..., description="User's password", example="s3cur3pass!")
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr = Field(..., description="Email address to resend the verification link to", example="jane@acme.com")
+    redirect_url: str | None = Field(None, description="Base URL for the verification email link. Falls back to the URL used at sign-up, then the server default.", example="https://your-app.com/verify-email")
 
 
 class ForgotPasswordRequest(BaseModel):
