@@ -6,6 +6,80 @@ All endpoints require `Authorization: Bearer <access_token>` from the org user a
 
 ---
 
+## Screen 0 — Sign Up (org creation)
+
+The sign-up screen creates both the user account and the organization in a single call. It is only shown to new orgs — returning users go straight to Sign In.
+
+```http
+POST /api/v1/auth/sign-up
+Content-Type: application/json
+
+{
+  "org_name": "City of Springfield",
+  "name": "Jane Doe",
+  "email": "jane@springfield.gov",
+  "password": "s3cur3pass!"
+}
+```
+
+**Response** (`200`):
+
+```json
+{
+  "user": {
+    "id": "uuid",
+    "name": "Jane Doe",
+    "email": "jane@springfield.gov",
+    "email_verified": false,
+    "status": "active",
+    "org_roles": [{ "id": "uuid", "name": "Super Admin", "permissions": ["..."] }],
+    "portal_roles": [],
+    "created_at": "2026-01-01T00:00:00Z"
+  },
+  "message": "Account created. Please check your email to verify your account."
+}
+```
+
+The founding user is automatically assigned the **Super Admin** role with all org permissions — no additional role setup is needed.
+
+{% callout type="warning" title="No token yet — verification is required" %}
+The sign-up response does **not** include an `access_token`. Redirect the user to a "Check your email" screen immediately after this call. They cannot sign in until `email_verified` is `true`.
+{% /callout %}
+
+### UX state machine
+
+```
+[Sign Up form]
+      │  POST /auth/sign-up (200)
+      ▼
+[Check your email screen]
+      │  user clicks link in email → POST /auth/verify-email
+      ▼
+[Redirect to Sign In]
+      │  POST /auth/sign-in (200)
+      ▼
+[Authenticated — store access_token + refresh_token]
+```
+
+### Email verification
+
+The verification link in the email contains a `token` query param. Your verify-email page should extract it and call:
+
+```http
+POST /api/v1/auth/verify-email
+Content-Type: application/json
+
+{ "token": "<token from email link>" }
+```
+
+On success, redirect to the Sign In screen. The user then signs in normally to receive their `access_token`.
+
+{% callout type="info" title="Dev / staging environments only" %}
+In non-production environments the sign-up response includes a `verification_token` field so you can skip the email step during development. This field is never present on the live API.
+{% /callout %}
+
+---
+
 ## Screen 1 — Sign In
 
 ```http
