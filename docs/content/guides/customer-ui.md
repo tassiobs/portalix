@@ -1,22 +1,22 @@
-# Building the Citizen UI
+# Building the Customer UI
 
-This guide maps each citizen-facing screen to the API calls that back it. Use this as a reference when building the public portal experience.
+This guide maps each customer-facing screen to the API calls that back it. Use this as a reference when building the public portal experience.
 
-The base path for all citizen endpoints is:
+The base path for all customer endpoints is:
 ```
-/api/v1/citizen/{org_slug}/{portal_slug}
+/api/v1/customer/{org_slug}/{portal_slug}
 ```
 
 ---
 
 ## Screen 1 — Portal Landing Page
 
-The entry point before a citizen has an account. Show the portal name and description.
+The entry point before a customer has an account. Show the portal name and description.
 
 **No auth required.**
 
 ```http
-GET /api/v1/citizen/{org_slug}/{portal_slug}
+GET /api/v1/customer/{org_slug}/{portal_slug}
 ```
 
 Response:
@@ -35,10 +35,10 @@ Use this to render a branded landing page with a sign-up / sign-in CTA.
 
 ## Screen 2 — Sign Up
 
-Collect name, email, and password. On success, prompt the citizen to verify their email before they can sign in.
+Collect name, email, and password. On success, prompt the customer to verify their email before they can sign in.
 
 ```http
-POST /api/v1/citizen/{org_slug}/{portal_slug}/auth/sign-up
+POST /api/v1/customer/{org_slug}/{portal_slug}/auth/sign-up
 Content-Type: application/json
 
 {
@@ -48,14 +48,14 @@ Content-Type: application/json
 }
 ```
 
-The citizen receives a verification email. Surface a message telling them to check their inbox — sign-in will fail until the email is verified, so do not redirect to the sign-in page immediately.
+The customer receives a verification email. Surface a message telling them to check their inbox — sign-in will fail until the email is verified, so do not redirect to the sign-in page immediately.
 
 ### Email Verification
 
 The verification link in the email contains a token. Your app should handle this as a redirect URL and call:
 
 ```http
-POST /api/v1/citizen/{org_slug}/{portal_slug}/auth/verify-email
+POST /api/v1/customer/{org_slug}/{portal_slug}/auth/verify-email
 Content-Type: application/json
 
 { "token": "<token from link>" }
@@ -68,7 +68,7 @@ After verification, redirect to sign-in.
 ## Screen 3 — Sign In
 
 ```http
-POST /api/v1/citizen/{org_slug}/{portal_slug}/auth/sign-in
+POST /api/v1/customer/{org_slug}/{portal_slug}/auth/sign-in
 Content-Type: application/json
 
 {
@@ -89,7 +89,7 @@ Response:
 Store both tokens. Use `access_token` as `Authorization: Bearer <token>` on all authenticated requests. When it expires, use the refresh token to get a new one:
 
 ```http
-POST /api/v1/citizen/{org_slug}/{portal_slug}/auth/refresh
+POST /api/v1/customer/{org_slug}/{portal_slug}/auth/refresh
 Content-Type: application/json
 
 { "refresh_token": "<refresh_token>" }
@@ -98,16 +98,16 @@ Content-Type: application/json
 ### Forgot Password
 
 ```http
-POST /api/v1/citizen/{org_slug}/{portal_slug}/auth/forgot-password
+POST /api/v1/customer/{org_slug}/{portal_slug}/auth/forgot-password
 Content-Type: application/json
 
 { "email": "john@example.com" }
 ```
 
-The citizen receives a reset link. Handle the token from that link:
+The customer receives a reset link. Handle the token from that link:
 
 ```http
-POST /api/v1/citizen/{org_slug}/{portal_slug}/auth/reset-password
+POST /api/v1/customer/{org_slug}/{portal_slug}/auth/reset-password
 Content-Type: application/json
 
 {
@@ -120,10 +120,10 @@ Content-Type: application/json
 
 ## Screen 4 — Service Catalogue
 
-List the available request types so the citizen can choose what to apply for.
+List the available request types so the customer can choose what to apply for.
 
 ```http
-GET /api/v1/citizen/{org_slug}/{portal_slug}/request-types
+GET /api/v1/customer/{org_slug}/{portal_slug}/request-types
 Authorization: Bearer <token>
 ```
 
@@ -160,7 +160,7 @@ Render the form dynamically from the `fields` array of the chosen request type.
 On submit:
 
 ```http
-POST /api/v1/citizen/{org_slug}/{portal_slug}/requests
+POST /api/v1/customer/{org_slug}/{portal_slug}/requests
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -180,10 +180,10 @@ On success (`201`), redirect to the request detail screen.
 
 ## Screen 6 — My Requests (List)
 
-Show all requests submitted by the signed-in citizen.
+Show all requests submitted by the signed-in customer.
 
 ```http
-GET /api/v1/citizen/{org_slug}/{portal_slug}/requests
+GET /api/v1/customer/{org_slug}/{portal_slug}/requests
 Authorization: Bearer <token>
 ```
 
@@ -203,18 +203,18 @@ Each item in the response includes `id`, `title`, `status`, `request_type_name`,
 Show the full submission including submitted field values.
 
 ```http
-GET /api/v1/citizen/{org_slug}/{portal_slug}/requests/{request_id}
+GET /api/v1/customer/{org_slug}/{portal_slug}/requests/{request_id}
 Authorization: Bearer <token>
 ```
 
-The `field_values` array contains the citizen's answers alongside the field label and type — render them as a read-only summary.
+The `field_values` array contains the customer's answers alongside the field label and type — render them as a read-only summary.
 
 ---
 
 ## Sign Out
 
 ```http
-POST /api/v1/citizen/{org_slug}/{portal_slug}/auth/sign-out
+POST /api/v1/customer/{org_slug}/{portal_slug}/auth/sign-out
 Content-Type: application/json
 
 { "refresh_token": "<refresh_token>" }

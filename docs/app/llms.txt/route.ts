@@ -7,7 +7,7 @@ const GUIDE_ORDER = [
   'introduction',
   'concepts',
   'getting-started',
-  'citizen-ui',
+  'customer-ui',
   'admin-ui',
   'error-handling',
   'rbac',

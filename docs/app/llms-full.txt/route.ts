@@ -46,7 +46,7 @@ export async function GET() {
   const apiBase = spec.servers?.[0]?.url ?? 'https://portalu-production.up.railway.app'
   const version = spec.info?.version ?? ''
 
-  const guideOrder = ['introduction', 'concepts', 'getting-started', 'citizen-ui', 'admin-ui', 'error-handling', 'rbac']
+  const guideOrder = ['introduction', 'concepts', 'getting-started', 'customer-ui', 'admin-ui', 'error-handling', 'rbac']
   const guideDir = path.join(process.cwd(), 'content/guides')
   const allSlugs = fs.readdirSync(guideDir).filter(f => f.endsWith('.md')).map(f => f.replace(/\.md$/, ''))
   const ordered = guideOrder.filter(s => allSlugs.includes(s))
@@ -60,7 +60,7 @@ export async function GET() {
 
   const content = `# Portalu API — Full LLM Context
 
-> Multi-tenant platform for service-provider organisations to create citizen-facing portals for request management.
+> Multi-tenant platform for service-provider organisations to create customer-facing portals for request management.
 
 Version: ${version}
 Base URL: ${apiBase}
@@ -74,7 +74,7 @@ Two separate auth systems:
 
 **Org Users** (internal staff) — authenticate via \`/api/v1/auth/*\`. Receive a JWT access token and refresh token. Include access token as \`Authorization: Bearer <token>\` on all requests.
 
-**Citizens** (end users) — authenticate via \`/api/v1/citizen/{org_slug}/{portal_slug}/auth/*\`. Same token model, scoped to a specific portal.
+**Citizens** (end users) — authenticate via \`/api/v1/customer/{org_slug}/{portal_slug}/auth/*\`. Same token model, scoped to a specific portal.
 
 Access tokens expire. Use the \`/refresh\` endpoint with the refresh token to get a new one.
 

@@ -29,11 +29,11 @@ Organization (Org)
 An **Organization** (org) is the top-level tenant. Every resource belongs to an org. When a developer team signs up, they create an org.
 
 - Identified by a globally unique `slug` (e.g. `springfield`)
-- Has org-level settings: lockout policy, MFA requirements, citizen identity scope
+- Has org-level settings: lockout policy, MFA requirements, customer identity scope
 
 ## Org User
 
-An **Org User** is an internal staff member — someone working for the org, not a citizen. They authenticate via the standard auth endpoints and act within the org's portals.
+An **Org User** is an internal staff member — someone working for the org, not a customer. They authenticate via the standard auth endpoints and act within the org's portals.
 
 Org users have **Roles** that grant **Permissions**. Roles are scoped to either:
 - `org` level — applies across the entire org
@@ -43,13 +43,13 @@ Key permissions: `portal.requests:read`, `portal.requests:read_all`, `portal.req
 
 ## Portal
 
-A **Portal** is the citizen-facing surface. An org can have multiple portals — one per service line, department, or audience.
+A **Portal** is the customer-facing surface. An org can have multiple portals — one per service line, department, or audience.
 
 - Identified by a `slug` unique within the org (e.g. `permits`)
-- Citizens exist within a portal (or shared across the org, depending on `citizen_identity_scope`)
+- Citizens exist within a portal (or shared across the org, depending on `customer_identity_scope`)
 - Has its own request types, workflows, and assigned org users
 
-The full citizen URL pattern is: `/citizen/{org_slug}/{portal_slug}/...`
+The full customer URL pattern is: `/customer/{org_slug}/{portal_slug}/...`
 
 ## Citizen
 
@@ -62,7 +62,7 @@ Citizens can:
 
 ## Request Type
 
-A **Request Type** is a service template — it defines what citizens can apply for (e.g. "Building Permit", "Library Card"). Each portal can have multiple request types.
+A **Request Type** is a service template — it defines what customers can apply for (e.g. "Building Permit", "Library Card"). Each portal can have multiple request types.
 
 Each request type has:
 - A **name** and optional **description**
@@ -71,7 +71,7 @@ Each request type has:
 
 ## Request Type Field
 
-**Fields** define the dynamic form schema for a request type. When a citizen submits a request, they fill in these fields.
+**Fields** define the dynamic form schema for a request type. When a customer submits a request, they fill in these fields.
 
 | Field type | UI element |
 |---|---|
@@ -85,11 +85,11 @@ Fields have `order`, `required`, and optional `options` (for `select` type).
 
 ## Request
 
-A **Request** is a citizen's submission against a request type. It contains:
+A **Request** is a customer's submission against a request type. It contains:
 - A reference to its **Request Type**
-- The **Field Values** the citizen submitted (keyed to field IDs)
+- The **Field Values** the customer submitted (keyed to field IDs)
 - A `status`: `open` → `in_progress` → `closed` or `rejected`
-- A `title` (set by the citizen or defaulted)
+- A `title` (set by the customer or defaulted)
 
 ## Workflow & Task Definitions
 

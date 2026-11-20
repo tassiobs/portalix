@@ -23,7 +23,7 @@ from app.schemas.portal import PortalPublicOut, RequestTypeOut
 from app.services import citizen_auth as auth_service
 from app.services import citizen_requests as request_service
 
-router = APIRouter(prefix="/citizen/{org_slug}/{portal_slug}")
+router = APIRouter(prefix="/customer/{org_slug}/{portal_slug}")
 
 
 @router.get("", response_model=PortalPublicOut, summary="Get public portal info", tags=["Citizen"])

@@ -122,7 +122,7 @@ Content-Type: application/json
 
 See the [Error Handling](./error-handling) guide for how to detect expiry and trigger this flow automatically.
 
-**The sign-in response does not include `org_slug`.** If you need it (e.g. to construct citizen portal URLs like `/citizen/{org_slug}/{portal_slug}/...`), fetch it immediately after sign-in and cache it for the session:
+**The sign-in response does not include `org_slug`.** If you need it (e.g. to construct customer portal URLs like `/customer/{org_slug}/{portal_slug}/...`), fetch it immediately after sign-in and cache it for the session:
 
 ```http
 GET /api/v1/org
@@ -172,7 +172,7 @@ Use `assigned_to_me=true` as the default for most staff — they only see what's
 {% callout type="tip" title="Cross-portal request view" %}
 `GET /api/v1/org/requests` (no portal ID) returns requests across all portals in the org. Use this for org-wide dashboards or admin tooling. For portal-specific screens, always use the portal-scoped endpoint above.
 
-`POST /api/v1/org/requests` lets org users submit a request on behalf of a citizen — useful for phone or in-person intake flows where a staff member enters the submission. This is distinct from `POST /citizen/.../requests`, which requires a citizen token and is for self-service submissions.
+`POST /api/v1/org/requests` lets org users submit a request on behalf of a customer — useful for phone or in-person intake flows where a staff member enters the submission. This is distinct from `POST /customer/.../requests`, which requires a customer token and is for self-service submissions.
 {% /callout %}
 
 ---
@@ -186,7 +186,7 @@ GET /api/v1/org/portals/{portal_id}/requests/{request_id}
 Authorization: Bearer <token>
 ```
 
-The response includes `field_values` (the citizen's answers) and basic request metadata. Fetch tasks separately for the workflow panel:
+The response includes `field_values` (the customer's answers) and basic request metadata. Fetch tasks separately for the workflow panel:
 
 ```http
 GET /api/v1/org/portals/{portal_id}/requests/{request_id}/tasks
@@ -319,7 +319,7 @@ Authorization: Bearer <token>
 
 ## Screen 8 — Request Type Management
 
-Manage the services citizens can apply for. Requires `portal.request_types:manage`.
+Manage the services customers can apply for. Requires `portal.request_types:manage`.
 
 ### List request types
 
@@ -401,7 +401,7 @@ This section shows what happens at runtime — from request submission through t
 
 ### Step 1 — Request is submitted
 
-When a citizen submits a request for a request type that has a workflow, task instances are created automatically. Tasks with no `depends_on` (or whose dependencies are already met) start as `active`. All others start as `pending`.
+When a customer submits a request for a request type that has a workflow, task instances are created automatically. Tasks with no `depends_on` (or whose dependencies are already met) start as `active`. All others start as `pending`.
 
 For the two-task workflow above, immediately after submission:
 

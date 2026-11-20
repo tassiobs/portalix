@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide walks through the complete self-serve setup — from creating your account to having a live citizen-facing portal ready to receive requests.
+This guide walks through the complete self-serve setup — from creating your account to having a live customer-facing portal ready to receive requests.
 
 ## Base URL
 
@@ -63,7 +63,7 @@ Access tokens expire. Use `POST /api/v1/auth/refresh` with your `refresh_token` 
 
 ### Optional — set a custom org slug
 
-The org slug appears in every citizen-facing URL (`/citizen/{org_slug}/...`). You can customize it:
+The org slug appears in every customer-facing URL (`/customer/{org_slug}/...`). You can customize it:
 
 ```http
 PATCH /api/v1/org
@@ -79,14 +79,14 @@ Content-Type: application/json
 Org slugs are globally unique — you'll get a `409 Conflict` if it's already taken.
 
 {% callout type="warning" title="Treat org slugs as permanent" %}
-The org slug is embedded in every citizen-facing URL (`/citizen/{org_slug}/...`). Changing it after citizens have bookmarks, shared links, or integrations pointed at the old slug will break them — there is no redirect. Set the slug you intend to keep before going live.
+The org slug is embedded in every customer-facing URL (`/customer/{org_slug}/...`). Changing it after customers have bookmarks, shared links, or integrations pointed at the old slug will break them — there is no redirect. Set the slug you intend to keep before going live.
 {% /callout %}
 
 ---
 
 ## Step 2 — Create a portal
 
-A portal is the citizen-facing surface where users sign up and submit requests. You can have multiple portals per org.
+A portal is the customer-facing surface where users sign up and submit requests. You can have multiple portals per org.
 
 ```http
 POST /api/v1/org/portals
@@ -104,16 +104,16 @@ Content-Type: application/json
 The `slug` is optional — auto-generated from `name` if omitted. Portal slugs are unique within your org.
 
 {% callout type="warning" title="Treat portal slugs as permanent" %}
-Like the org slug, the portal slug is part of every citizen URL (`/citizen/{org_slug}/{portal_slug}/...`). Changing it after the portal is live will break existing bookmarks and shared links. Choose your slug before inviting citizens.
+Like the org slug, the portal slug is part of every customer URL (`/customer/{org_slug}/{portal_slug}/...`). Changing it after the portal is live will break existing bookmarks and shared links. Choose your slug before inviting customers.
 {% /callout %}
 
-Once created, citizens can discover the portal at:
+Once created, customers can discover the portal at:
 
 ```http
-GET /api/v1/citizen/springfield/permits
+GET /api/v1/customer/springfield/permits
 ```
 
-This endpoint is public (no auth required) and returns the portal's name, slug, and description — useful for building a landing page before the citizen signs up.
+This endpoint is public (no auth required) and returns the portal's name, slug, and description — useful for building a landing page before the customer signs up.
 
 ---
 
@@ -132,7 +132,7 @@ Content-Type: application/json
 }
 ```
 
-Add fields to capture information from citizens:
+Add fields to capture information from customers:
 
 ```http
 POST /api/v1/org/portals/{portal_id}/request-types/{rt_id}/fields
@@ -200,14 +200,14 @@ Tasks activate in dependency order and can be assigned to a role or a specific u
 
 ## Step 4 — Go live
 
-With the portal and request types in place, your citizen-facing app can:
+With the portal and request types in place, your customer-facing app can:
 
-1. **Show a landing page** — `GET /citizen/{org_slug}/{portal_slug}` (public, no auth)
-2. **Let citizens sign up** — `POST /citizen/{org_slug}/{portal_slug}/auth/sign-up`
-3. **List available services** — `GET /citizen/{org_slug}/{portal_slug}/request-types`
-4. **Accept submissions** — `POST /citizen/{org_slug}/{portal_slug}/requests`
+1. **Show a landing page** — `GET /customer/{org_slug}/{portal_slug}` (public, no auth)
+2. **Let customers sign up** — `POST /customer/{org_slug}/{portal_slug}/auth/sign-up`
+3. **List available services** — `GET /customer/{org_slug}/{portal_slug}/request-types`
+4. **Accept submissions** — `POST /customer/{org_slug}/{portal_slug}/requests`
 
-Citizens track their submissions via `GET /citizen/{org_slug}/{portal_slug}/requests`.
+Citizens track their submissions via `GET /customer/{org_slug}/{portal_slug}/requests`.
 
 ---
 
