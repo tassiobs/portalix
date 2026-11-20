@@ -8,6 +8,7 @@ class CitizenSignUpRequest(BaseModel):
     name: str | None = Field(None, max_length=100, description="Full name of the citizen", example="John Smith")
     email: EmailStr = Field(..., description="Citizen's email address", example="john@example.com")
     password: str = Field(..., min_length=8, description="Password (minimum 8 characters)", example="s3cur3pass!")
+    redirect_url: str | None = Field(None, description="Base URL for the verification email link (e.g. https://your-app.com/portal/{org_slug}/{portal_slug}/auth/verify-email). Falls back to the server default if omitted.", example="https://your-app.com/portal/springfield/permits/auth/verify-email")
 
 
 class CitizenSignInRequest(BaseModel):

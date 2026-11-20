@@ -115,7 +115,7 @@ async def sign_up(
     db.add(ev_token)
     await db.flush()
 
-    send_verification_email(citizen.email, token_value, org_slug, portal_slug)
+    send_verification_email(citizen.email, token_value, redirect_url=data.redirect_url, org_slug=org_slug, portal_slug=portal_slug)
 
     await db.commit()
 
