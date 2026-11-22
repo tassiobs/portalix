@@ -95,6 +95,32 @@ Content-Type: application/json
 { "refresh_token": "<refresh_token>" }
 ```
 
+### Cross-portal sign-in (same org)
+
+Customers have **one account per org** — the same credentials work on every portal belonging to the same organization. If a customer is already authenticated on portal A and navigates to portal B (same org), you can sign them in silently without showing a sign-in form.
+
+Use the existing refresh token to exchange it for a new token scoped to the new portal:
+
+```http
+POST /api/v1/customer/{org_slug}/{portal_slug}/auth/exchange
+Content-Type: application/json
+
+{ "refresh_token": "<refresh_token_from_any_portal_in_this_org>" }
+```
+
+Returns a fresh `access_token` and `refresh_token` scoped to the target portal. The old refresh token is invalidated.
+
+**Recommended frontend pattern:**
+
+1. On sign-in, store the refresh token keyed by `org_slug` (e.g. `localStorage["rt:springfield"]`) — not by portal
+2. On load of any portal, check for a stored token for that `org_slug`
+3. If found, silently call `/auth/exchange` before rendering the sign-in screen
+4. `200` → customer is in, skip sign-in; `401` → token expired, show sign-in form
+
+{% callout type="info" title="Token stays portal-scoped" %}
+Even though the customer has one account, each session token is scoped to a specific portal. The exchange call is what moves the session from one portal to another — always call it when switching portals rather than reusing the same token.
+{% /callout %}
+
 ### Forgot Password
 
 ```http
