@@ -578,27 +578,27 @@ For reference, the current permissions are:
 
 **Org-level** (`level: "org"`) — valid for roles assigned across the whole org:
 
-| Key | Label |
-|---|---|
-| `org.users.manage` | Manage Users |
-| `org.portals.manage` | Manage Portals |
-| `requests:read` | View Requests |
-| `requests:create` | Create Requests |
-| `requests:update` | Update Requests |
-| `requests:delete` | Delete Requests |
+| Key | Label | Description |
+|---|---|---|
+| `org.users.manage` | Manage Users | Add/update/deactivate org users; assign org roles |
+| `org.portals.manage` | Manage Portals | Create/update/archive portals |
+| `requests:read` | View Requests | View requests in the organization |
+| `requests:create` | Create Requests | Create new requests in the organization |
+| `requests:update` | Update Requests | Update title or status of existing requests |
+| `requests:delete` | Delete Requests | Delete requests from the organization |
 
 **Portal-level** (`level: "portal"`) — valid for roles assigned within a specific portal:
 
-| Key | Label |
-|---|---|
-| `portal.requests:read` | View Assigned Requests |
-| `portal.requests:read_all` | View All Requests |
-| `portal.requests:update` | Update Requests |
-| `portal.request_types:manage` | Manage Request Types |
-| `portal.users:manage` | Manage Portal Users |
-| `portal.settings:manage` | Manage Portal Settings |
-| `portal.workflows:view` | View Workflows |
-| `portal.workflows:manage` | Manage Workflows |
+| Key | Label | Description |
+|---|---|---|
+| `portal.requests:read` | View Assigned Requests | View requests where the user has an assigned task |
+| `portal.requests:read_all` | View All Requests | View all requests submitted on this portal regardless of assignment |
+| `portal.requests:update` | Update Requests | Update status or title of requests on this portal |
+| `portal.request_types:manage` | Manage Request Types | Create, update, and delete request types on this portal |
+| `portal.users:manage` | Manage Portal Users | Add/remove users and assign portal roles |
+| `portal.settings:manage` | Manage Portal Settings | Update portal name, description, and domain |
+| `portal.workflows:view` | View Workflows | Read-only access to workflow definitions for request types |
+| `portal.workflows:manage` | Manage Workflows | Create and replace workflow definitions for request types |
 
 {% callout type="warning" title="Permissions are level-scoped" %}
 Org-level permissions cannot be assigned to portal-level roles and vice versa. The API will return a `422` if you mix levels. Check the `level` field on each permission before building your picker.
