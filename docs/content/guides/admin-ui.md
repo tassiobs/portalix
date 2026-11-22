@@ -508,3 +508,98 @@ If a task definition has `fan_out: true` and multiple users hold the `assignee_r
 ### Requests without a workflow
 
 If a request type has no workflow, `GET .../tasks` returns an empty array. Status updates are entirely manual via `PATCH .../requests/{id}`.
+
+---
+
+## Screen 9 — Roles Management
+
+Roles control what org users can do. Each role has a name, an optional description, a level (`org` or `portal`), and a list of permission keys.
+
+### List roles
+
+```http
+GET /api/v1/org/roles
+Authorization: Bearer <token>
+```
+
+### Create a role
+
+```http
+POST /api/v1/org/roles
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Reviewer",
+  "description": "Can view and update assigned requests",
+  "level": "portal",
+  "permissions": ["portal.requests:read", "portal.requests:update"]
+}
+```
+
+`level` defaults to `"org"` if omitted. `permissions` defaults to `[]`. Requires `org.users.manage`.
+
+### Edit a role
+
+```http
+PATCH /api/v1/org/roles/{role_id}
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Senior Reviewer",
+  "permissions": ["portal.requests:read", "portal.requests:read_all", "portal.requests:update"]
+}
+```
+
+All fields are optional. `permissions` replaces the full set — send the complete list you want, not just additions. Requires `org.users.manage`.
+
+### Delete a role
+
+```http
+DELETE /api/v1/org/roles/{role_id}
+Authorization: Bearer <token>
+```
+
+Returns `204 No Content`. Requires `org.users.manage`.
+
+### Permission catalogue
+
+Fetch the live list at any time:
+
+```http
+GET /api/v1/org/permissions
+Authorization: Bearer <token>
+```
+
+Each permission has `key`, `label`, `description`, and `level` (`"org"` or `"portal"`). Use this to populate a permissions picker — don't hardcode the list.
+
+For reference, the current permissions are:
+
+**Org-level** (`level: "org"`) — valid for roles assigned across the whole org:
+
+| Key | Label |
+|---|---|
+| `org.users.manage` | Manage Users |
+| `org.portals.manage` | Manage Portals |
+| `requests:read` | View Requests |
+| `requests:create` | Create Requests |
+| `requests:update` | Update Requests |
+| `requests:delete` | Delete Requests |
+
+**Portal-level** (`level: "portal"`) — valid for roles assigned within a specific portal:
+
+| Key | Label |
+|---|---|
+| `portal.requests:read` | View Assigned Requests |
+| `portal.requests:read_all` | View All Requests |
+| `portal.requests:update` | Update Requests |
+| `portal.request_types:manage` | Manage Request Types |
+| `portal.users:manage` | Manage Portal Users |
+| `portal.settings:manage` | Manage Portal Settings |
+| `portal.workflows:view` | View Workflows |
+| `portal.workflows:manage` | Manage Workflows |
+
+{% callout type="warning" title="Permissions are level-scoped" %}
+Org-level permissions cannot be assigned to portal-level roles and vice versa. The API will return a `422` if you mix levels. Check the `level` field on each permission before building your picker.
+{% /callout %}
