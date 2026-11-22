@@ -8,6 +8,7 @@ from app.core.dependencies import get_current_citizen, get_db, get_redis
 from app.db.models.citizen import Citizen
 from app.schemas.citizen import (
     CitizenAuthResponse,
+    CitizenExchangeRequest,
     CitizenForgotPasswordRequest,
     CitizenOut,
     CitizenRefreshRequest,
@@ -84,6 +85,17 @@ async def refresh(
     redis: Annotated[aioredis.Redis, Depends(get_redis)],
 ):
     return await auth_service.refresh_tokens(db, redis, data.refresh_token)
+
+
+@router.post("/auth/exchange", response_model=CitizenAuthResponse, tags=["Citizen Auth"])
+async def exchange_portal_token(
+    org_slug: str,
+    portal_slug: str,
+    data: CitizenExchangeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[aioredis.Redis, Depends(get_redis)],
+):
+    return await auth_service.exchange_portal_token(db, redis, org_slug, portal_slug, data.refresh_token)
 
 
 @router.post("/auth/sign-out", status_code=status.HTTP_204_NO_CONTENT, tags=["Citizen Auth"])

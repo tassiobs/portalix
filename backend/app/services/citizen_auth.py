@@ -206,6 +206,34 @@ async def refresh_tokens(
     return await _build_citizen_auth_response(db, redis, citizen, portal_id)
 
 
+async def exchange_portal_token(
+    db: AsyncSession, redis: aioredis.Redis, org_slug: str, portal_slug: str, refresh_token: str
+) -> CitizenAuthResponse:
+    raw = await redis.get(f"citizen_refresh:{refresh_token}")
+    if not raw:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    data = json.loads(raw)
+    citizen_id = uuid.UUID(data["citizen_id"])
+    session_id = data.get("session_id")
+
+    target_portal = await _get_portal_by_slug(db, org_slug, portal_slug)
+
+    citizen = (await db.execute(select(Citizen).where(Citizen.id == citizen_id))).scalar_one_or_none()
+    if not citizen:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Citizen not found")
+    if citizen.org_id != target_portal.org_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token does not belong to this organization")
+    if citizen.status != "active":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account deactivated")
+
+    await redis.delete(f"citizen_refresh:{refresh_token}")
+    if session_id:
+        await redis.delete(f"citizen_session:{session_id}")
+
+    return await _build_citizen_auth_response(db, redis, citizen, target_portal.id)
+
+
 async def sign_out(redis: aioredis.Redis, refresh_token: str) -> None:
     raw = await redis.get(f"citizen_refresh:{refresh_token}")
     if raw:

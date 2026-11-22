@@ -33,6 +33,10 @@ class CitizenRefreshRequest(BaseModel):
     refresh_token: str = Field(..., description="Refresh token obtained from sign-in or refresh response")
 
 
+class CitizenExchangeRequest(BaseModel):
+    refresh_token: str = Field(..., description="Refresh token from any portal in the same org")
+
+
 class CitizenOut(BaseModel):
     id: uuid.UUID
     org_id: uuid.UUID
