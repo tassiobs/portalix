@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
-_PERM_RE = re.compile(r'Requires `([a-z_.:\*]+)`')
+_PERM_RE = re.compile(r'`((?:org|portal)\.[a-z_.]+(?::[a-z_]+)?)`')
 
 from app.api.v1.router import router
 from app.db.base import Base, engine
