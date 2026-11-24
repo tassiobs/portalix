@@ -151,11 +151,15 @@ def custom_openapi():
             else:
                 operation["security"] = [{"StaffBearer": []}]
 
-            # x-required-permissions: machine-readable permission keys from description
-            desc = operation.get("description", "")
-            perms = _PERM_RE.findall(desc)
-            if perms:
-                operation["x-required-permissions"] = perms
+            # x-required-permissions: machine-readable permission keys.
+            # Set to the extracted keys if the description names a permission,
+            # or [] for protected ops that need auth but no specific permission.
+            # Public ops (security: []) get no field.
+            sec = operation.get("security")
+            if sec:  # protected (non-empty security list)
+                desc = operation.get("description", "")
+                perms = _PERM_RE.findall(desc)
+                operation["x-required-permissions"] = perms  # [] means "any authenticated user"
 
     app.openapi_schema = schema
     return app.openapi_schema

@@ -165,6 +165,55 @@ export default function ReferencePage() {
         </pre>
       </section>
 
+      {/* Permission Model */}
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Permission Model</h2>
+        <p className="text-gray-600 text-sm mb-3">
+          Access is controlled by <strong>roles</strong>. Each role has a <code className="bg-gray-100 px-1 rounded text-xs">level</code> and
+          a list of <code className="bg-gray-100 px-1 rounded text-xs">permissions</code>:
+        </p>
+        <div className="border rounded-lg overflow-hidden mb-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b">
+                <th className="px-4 py-2 text-left font-semibold text-gray-700">Level</th>
+                <th className="px-4 py-2 text-left font-semibold text-gray-700">Assigned via</th>
+                <th className="px-4 py-2 text-left font-semibold text-gray-700">Valid permission keys</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b">
+                <td className="px-4 py-3 font-mono text-xs">org</td>
+                <td className="px-4 py-3 text-gray-600 font-mono text-xs">POST /org/users/&#123;user_id&#125;/roles</td>
+                <td className="px-4 py-3 text-gray-600">
+                  <code className="bg-gray-100 px-1 rounded text-xs">GET /org/permissions</code>
+                </td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs">portal</td>
+                <td className="px-4 py-3 text-gray-600 font-mono text-xs">POST /org/portals/&#123;portal_id&#125;/users</td>
+                <td className="px-4 py-3 text-gray-600">
+                  <code className="bg-gray-100 px-1 rounded text-xs">GET /org/portals/permissions</code>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-gray-500 text-sm mb-3">
+          Every protected operation in this spec includes an{' '}
+          <code className="bg-gray-100 px-1 rounded text-xs">x-required-permissions</code> extension.
+          An empty array means any authenticated user can call it; a non-empty array lists the permission keys
+          the caller must hold on the relevant org or portal.
+        </p>
+        <pre className="bg-gray-900 text-gray-100 text-sm rounded-lg p-4 overflow-x-auto">
+{`// Requires portal.requests:update on the target portal
+"x-required-permissions": ["portal.requests:update"]
+
+// Any authenticated staff user
+"x-required-permissions": []`}
+        </pre>
+      </section>
+
       {/* Errors */}
       <section className="mb-8">
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Error Codes</h2>
