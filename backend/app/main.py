@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Portalu API",
-    version="2.3.0",
+    version="2.4.0",
     lifespan=lifespan,
     servers=[{"url": "https://portalu-production.up.railway.app", "description": "Production"}],
 )
