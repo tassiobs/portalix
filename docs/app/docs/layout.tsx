@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { MobileNav } from '@/components/MobileNav'
 
 const nav = [
   {
@@ -7,7 +8,7 @@ const nav = [
       { href: '/docs/guides/introduction', label: 'Introduction' },
       { href: '/docs/guides/concepts', label: 'Concepts' },
       { href: '/docs/guides/getting-started', label: 'Getting Started' },
-      { href: '/docs/guides/citizen-ui', label: 'Building the Citizen UI' },
+      { href: '/docs/guides/customer-ui', label: 'Building the Customer UI' },
       { href: '/docs/guides/admin-ui', label: 'Building the Admin UI' },
       { href: '/docs/guides/error-handling', label: 'Error Handling' },
       { href: '/docs/guides/rbac', label: 'RBAC for UI' },
@@ -21,7 +22,7 @@ const nav = [
       { href: '/docs/reference/org', label: 'Org' },
       { href: '/docs/reference/portals', label: 'Portals' },
       { href: '/docs/reference/requests', label: 'Requests' },
-      { href: '/docs/reference/citizen', label: 'Citizen' },
+      { href: '/docs/reference/citizen', label: 'Customer' },
     ],
   },
 ]
@@ -29,6 +30,10 @@ const nav = [
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
+      {/* Mobile nav — hamburger + drawer */}
+      <MobileNav />
+
+      {/* Desktop sidebar */}
       <aside className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 p-6 hidden md:block">
         <Link href="/" className="text-lg font-bold text-gray-900 mb-8 block">
           Portalu API
@@ -55,7 +60,9 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
           ))}
         </nav>
       </aside>
-      <main className="flex-1 px-8 py-10 max-w-4xl prose prose-gray">
+
+      {/* Main content — extra top padding on mobile to clear the hamburger button */}
+      <main className="flex-1 px-8 py-10 pt-16 md:pt-10 max-w-4xl prose prose-gray">
         {children}
       </main>
     </div>
