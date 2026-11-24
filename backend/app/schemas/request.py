@@ -5,18 +5,18 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class RequestCreate(BaseModel):
+class OrgRequestCreate(BaseModel):
     title: str = Field(..., min_length=2, max_length=200, description="Title of the request", example="New building permit application")
 
 
-class RequestUpdate(BaseModel):
+class OrgRequestUpdate(BaseModel):
     title: str | None = Field(None, min_length=2, max_length=200, description="Updated title for the request")
     status: Literal["open", "in_progress", "rejected", "closed"] | None = Field(
         None, description="Updated status for the request"
     )
 
 
-class RequestOut(BaseModel):
+class OrgRequestOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID

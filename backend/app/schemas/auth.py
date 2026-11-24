@@ -44,6 +44,10 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr = Field(..., description="Email address to send the password reset link to", example="jane@acme.com")
 
 
+class MessageOut(BaseModel):
+    message: str
+
+
 class ForgotPasswordResponse(BaseModel):
     message: str
 

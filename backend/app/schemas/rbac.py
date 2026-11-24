@@ -5,6 +5,17 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class PermissionItemOut(BaseModel):
+    key: str = Field(..., description="Permission key used in role definitions")
+    label: str = Field(..., description="Human-readable label")
+    description: str = Field(..., description="What this permission grants")
+    level: Literal["org", "portal"] = Field(..., description="Scope — 'org' or 'portal'")
+
+
+class PermissionListOut(BaseModel):
+    data: list[PermissionItemOut]
+
+
 class RoleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
