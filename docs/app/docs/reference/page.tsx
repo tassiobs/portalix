@@ -202,14 +202,17 @@ export default function ReferencePage() {
         <p className="text-gray-500 text-sm mb-3">
           Every protected operation in this spec includes an{' '}
           <code className="bg-gray-100 px-1 rounded text-xs">x-required-permissions</code> extension.
-          An empty array means any authenticated user can call it; a non-empty array lists the permission keys
-          the caller must hold on the relevant org or portal.
+          An empty array means any authenticated user can call it; a non-empty array lists permission keys —
+          holding <strong>any one</strong> of them is sufficient (OR semantics, not AND).
         </p>
         <pre className="bg-gray-900 text-gray-100 text-sm rounded-lg p-4 overflow-x-auto">
-{`// Requires portal.requests:update on the target portal
+{`// Caller needs portal.requests:update (one key required)
 "x-required-permissions": ["portal.requests:update"]
 
-// Any authenticated staff user
+// Either portal.requests:read OR portal.requests:read_all is enough
+"x-required-permissions": ["portal.requests:read", "portal.requests:read_all"]
+
+// Any authenticated staff user, no specific permission needed
 "x-required-permissions": []`}
         </pre>
       </section>
