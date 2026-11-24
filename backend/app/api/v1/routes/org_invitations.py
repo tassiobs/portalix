@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_active_user, get_db, require_permissions
 from app.db.models.user import OrgUser
 from app.schemas.auth import MessageOut
-from app.schemas.user import InvitationOut, PaginationOut
+from app.schemas.user import InvitationOut, InvitationPage, PaginationOut
 from app.services import user as user_service
 
 router = APIRouter(prefix="/org/invitations", tags=["Org Invitations"])
@@ -19,6 +19,7 @@ _404 = {404: {"description": "Invitation not found"}}
 
 @router.get(
     "",
+    response_model=InvitationPage,
     summary="List pending invitations",
     description="Returns a paginated list of invitations that have not yet been accepted.",
     responses={**_401},

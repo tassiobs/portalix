@@ -29,6 +29,27 @@ function extractTitle(slug: string): string {
   return match ? match[1] : slug
 }
 
+function extractDescription(slug: string): string {
+  const filePath = path.join(process.cwd(), 'content/guides', `${slug}.md`)
+  const content = fs.readFileSync(filePath, 'utf-8')
+  // Skip the title line, find the first non-empty paragraph that isn't a heading
+  const lines = content.split('\n')
+  let inPara = false
+  const paraLines: string[] = []
+  for (const line of lines) {
+    if (line.startsWith('#')) { inPara = false; continue }
+    if (line.startsWith('{%') || line.startsWith('---')) continue
+    if (line.trim() === '') {
+      if (inPara && paraLines.length > 0) break
+      continue
+    }
+    inPara = true
+    paraLines.push(line.trim())
+  }
+  const para = paraLines.join(' ').replace(/\*\*|`/g, '').trim()
+  return para.length > 160 ? para.slice(0, 157) + '…' : para
+}
+
 export async function GET(req: NextRequest) {
   const spec = getOpenApiSpec()
   const base = new URL(req.url).origin
@@ -37,12 +58,16 @@ export async function GET(req: NextRequest) {
 
   const guides = getGuides()
   const guideLines = guides
-    .map(slug => `- [${extractTitle(slug)}](${base}/content/guides/${slug}.md)`)
+    .map(slug => {
+      const title = extractTitle(slug)
+      const desc = extractDescription(slug)
+      return `- [${title}](${base}/content/guides/${slug}.md)${desc ? `: ${desc}` : ''}`
+    })
     .join('\n')
 
   const content = `# Portalu API
 
-> Multi-tenant platform for service-provider organisations to create citizen-facing portals for request management. Orgs set up portals, define request types with custom fields and workflows; citizens sign up, submit requests, and track them.
+> Multi-tenant platform for service-provider organisations to create customer-facing portals for request management. Orgs set up portals, define request types with custom fields and workflows; customers sign up, submit requests, and track them.
 
 Version: ${version}
 API Base URL: ${apiBase}

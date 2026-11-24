@@ -25,9 +25,24 @@ const sections = [
   },
   {
     slug: 'citizen',
-    label: 'Citizen',
+    label: 'Customer',
     description: 'Public-facing portal experience — auth, request submission, and tracking for end users.',
   },
+]
+
+const errorCodes = [
+  { code: '400', description: 'Invalid, expired, or already-used token (email verification, password reset).' },
+  { code: '401', description: 'Missing or invalid authentication token.' },
+  { code: '403', description: 'Token is valid but lacks the required permission, or account is deactivated / unverified.' },
+  { code: '404', description: 'Resource not found.' },
+  { code: '409', description: 'Conflict — resource already exists (duplicate email, slug already taken).' },
+  { code: '422', description: 'Request body or query params failed validation. See the structured error body.' },
+  { code: '423', description: 'Account locked due to too many failed login attempts.' },
+]
+
+const paginatedEndpoints = [
+  'GET /api/v1/org/users',
+  'GET /api/v1/org/invitations',
 ]
 
 export default function ReferencePage() {
@@ -56,19 +71,42 @@ export default function ReferencePage() {
       {/* Authentication */}
       <section className="mb-8">
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Authentication</h2>
-        <p className="text-gray-600 text-sm mb-3">
-          Most endpoints require a Bearer token obtained by signing in. Include it in every
-          authenticated request:
+        <p className="text-gray-600 text-sm mb-4">
+          Two independent token families. Each is a short-lived JWT obtained by signing in.
+          Include it as a Bearer token on every authenticated request:
         </p>
-        <pre className="bg-gray-900 text-gray-100 text-sm rounded-lg p-4 overflow-x-auto">
+        <pre className="bg-gray-900 text-gray-100 text-sm rounded-lg p-4 overflow-x-auto mb-4">
           {`Authorization: Bearer <access_token>`}
         </pre>
-        <p className="text-gray-500 text-sm mt-3">
-          Tokens expire — use{' '}
-          <code className="bg-gray-100 px-1 rounded text-xs">/api/v1/auth/refresh</code> with your{' '}
-          <code className="bg-gray-100 px-1 rounded text-xs">refresh_token</code> to obtain a new one.
-          See <Link href="/docs/guides/getting-started" className="text-blue-600 hover:underline">Getting Started</Link> for
-          a full walkthrough.
+        <div className="border rounded-lg overflow-hidden mb-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b">
+                <th className="px-4 py-2 text-left font-semibold text-gray-700">Scheme</th>
+                <th className="px-4 py-2 text-left font-semibold text-gray-700">Who</th>
+                <th className="px-4 py-2 text-left font-semibold text-gray-700">How to obtain</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b">
+                <td className="px-4 py-3 font-mono text-xs">StaffBearer</td>
+                <td className="px-4 py-3 text-gray-600">Org staff / admins</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-600">POST /api/v1/auth/sign-in</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs">CustomerBearer</td>
+                <td className="px-4 py-3 text-gray-600">Portal customers</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-600">POST /api/v1/customer/&#123;org_slug&#125;/&#123;portal_slug&#125;/auth/sign-in</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-gray-500 text-sm">
+          Access tokens expire after 30 minutes. Use{' '}
+          <code className="bg-gray-100 px-1 rounded text-xs">/auth/refresh</code> (staff) or{' '}
+          <code className="bg-gray-100 px-1 rounded text-xs">/customer/.../auth/refresh</code> (customer) with the{' '}
+          <code className="bg-gray-100 px-1 rounded text-xs">refresh_token</code> to get a new one.
+          Endpoints marked 🔓 require no token.
         </p>
       </section>
 
@@ -106,35 +144,14 @@ export default function ReferencePage() {
       <section className="mb-8">
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Pagination</h2>
         <p className="text-gray-600 text-sm mb-3">
-          List endpoints that support pagination accept the following query parameters:
+          Most list endpoints return a plain array. The following endpoints are paginated and accept{' '}
+          <code className="bg-gray-100 px-1 rounded text-xs">page</code> and{' '}
+          <code className="bg-gray-100 px-1 rounded text-xs">per_page</code> query parameters:
         </p>
-        <div className="border rounded-lg overflow-hidden mb-3">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="px-4 py-2 text-left font-semibold text-gray-700">Parameter</th>
-                <th className="px-4 py-2 text-left font-semibold text-gray-700">Type</th>
-                <th className="px-4 py-2 text-left font-semibold text-gray-700">Default</th>
-                <th className="px-4 py-2 text-left font-semibold text-gray-700">Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b">
-                <td className="px-4 py-2 font-mono">page</td>
-                <td className="px-4 py-2 text-gray-500">integer</td>
-                <td className="px-4 py-2 text-gray-500">1</td>
-                <td className="px-4 py-2 text-gray-600">Page number (min: 1)</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-2 font-mono">per_page</td>
-                <td className="px-4 py-2 text-gray-500">integer</td>
-                <td className="px-4 py-2 text-gray-500">20</td>
-                <td className="px-4 py-2 text-gray-600">Items per page (min: 1, max: 100)</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p className="text-gray-600 text-sm mb-2">Paginated responses include a <code className="bg-gray-100 px-1 rounded text-xs">pagination</code> object:</p>
+        <ul className="text-sm font-mono text-gray-700 mb-4 space-y-1 pl-4 list-disc">
+          {paginatedEndpoints.map(ep => <li key={ep}>{ep}</li>)}
+        </ul>
+        <p className="text-gray-600 text-sm mb-3">Paginated responses wrap results in a <code className="bg-gray-100 px-1 rounded text-xs">data</code> array alongside a <code className="bg-gray-100 px-1 rounded text-xs">pagination</code> object:</p>
         <pre className="bg-gray-900 text-gray-100 text-sm rounded-lg p-4 overflow-x-auto">
 {`{
   "data": [...],
@@ -150,9 +167,27 @@ export default function ReferencePage() {
 
       {/* Errors */}
       <section className="mb-8">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Error Format</h2>
-        <p className="text-gray-600 text-sm mb-3">
-          Validation errors return <StatusBadge code="422" /> with a structured error body:
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Error Codes</h2>
+        <div className="border rounded-lg overflow-hidden mb-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b">
+                <th className="px-4 py-2 text-left font-semibold text-gray-700">Code</th>
+                <th className="px-4 py-2 text-left font-semibold text-gray-700">Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              {errorCodes.map((e, i) => (
+                <tr key={e.code} className={i < errorCodes.length - 1 ? 'border-b' : ''}>
+                  <td className="px-4 py-2"><StatusBadge code={e.code} /></td>
+                  <td className="px-4 py-2 text-gray-600">{e.description}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-gray-600 text-sm mb-2">
+          <StatusBadge code="422" /> returns a structured validation body:
         </p>
         <pre className="bg-gray-900 text-gray-100 text-sm rounded-lg p-4 overflow-x-auto">
 {`{

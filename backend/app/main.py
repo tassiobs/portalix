@@ -1,8 +1,11 @@
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
+
+_PERM_RE = re.compile(r'Requires `([a-z_.:\*]+)`')
 
 from app.api.v1.router import router
 from app.db.base import Base, engine
@@ -147,6 +150,12 @@ def custom_openapi():
                 operation["security"] = []
             else:
                 operation["security"] = [{"StaffBearer": []}]
+
+            # x-required-permissions: machine-readable permission keys from description
+            desc = operation.get("description", "")
+            perms = _PERM_RE.findall(desc)
+            if perms:
+                operation["x-required-permissions"] = perms
 
     app.openapi_schema = schema
     return app.openapi_schema

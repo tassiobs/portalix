@@ -63,5 +63,10 @@ class InvitationOut(BaseModel):
     accepted_at: datetime | None = None
 
 
+class InvitationPage(BaseModel):
+    data: list[InvitationOut]
+    pagination: PaginationOut
+
+
 class OrgUserCreateResponse(UserOut):
     pass
