@@ -4,6 +4,7 @@ from app.api.v1.routes import (
     auth,
     citizen,
     org,
+    org_departments,
     org_invitations,
     org_permissions,
     org_roles,
@@ -22,6 +23,7 @@ router.include_router(org_settings.router)
 router.include_router(org_users.router)
 router.include_router(org_roles.router)
 router.include_router(org_permissions.router)
+router.include_router(org_departments.router)
 router.include_router(org_invitations.router)
 router.include_router(sessions.router)
 router.include_router(requests.router)

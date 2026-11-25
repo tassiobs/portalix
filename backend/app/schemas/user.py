@@ -15,6 +15,15 @@ class UserSummary(BaseModel):
     email: str
 
 
+class UserDepartmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    description: str | None
+    created_at: datetime
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -25,6 +34,7 @@ class UserOut(BaseModel):
     status: str
     org_roles: list[RoleOut] = []
     portal_roles: list[RoleOut] = []
+    departments: list[UserDepartmentOut] = []
     created_at: datetime
 
 

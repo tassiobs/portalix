@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.security import generate_secure_token
+from app.db.models.department import Department, DepartmentMember
 from app.db.models.org import Organization
 from app.db.models.portal import Portal, PortalUserRole
 from app.db.models.rbac import OrgRole, OrgUserRole
@@ -19,13 +20,24 @@ from app.schemas.user import (
     OrgUserPage,
     OrgUserUpdate,
     PaginationOut,
+    UserDepartmentOut,
     UserOut,
     UserSummary,
 )
 from app.services.rbac import build_role_out
 
 
-def _user_to_out(user: OrgUser, portal_roles: list | None = None) -> UserOut:
+async def _get_user_departments(db: AsyncSession, user_id: uuid.UUID) -> list[UserDepartmentOut]:
+    result = await db.execute(
+        select(Department)
+        .join(DepartmentMember, DepartmentMember.department_id == Department.id)
+        .where(DepartmentMember.user_id == user_id)
+        .order_by(Department.name)
+    )
+    return [UserDepartmentOut.model_validate(d) for d in result.scalars().all()]
+
+
+def _user_to_out(user: OrgUser, portal_roles: list | None = None, departments: list | None = None) -> UserOut:
     org_roles = [build_role_out(ur.role) for ur in user.user_roles] if user.user_roles else []
     return UserOut(
         id=user.id,
@@ -35,6 +47,7 @@ def _user_to_out(user: OrgUser, portal_roles: list | None = None) -> UserOut:
         status=user.status,
         org_roles=org_roles,
         portal_roles=portal_roles or [],
+        departments=departments or [],
         created_at=user.created_at,
     )
 
@@ -93,7 +106,8 @@ async def list_users(
     user_outs = []
     for u in users:
         portal_roles = await _get_portal_roles(db, u.id)
-        user_outs.append(_user_to_out(u, portal_roles))
+        departments = await _get_user_departments(db, u.id)
+        user_outs.append(_user_to_out(u, portal_roles, departments))
 
     return OrgUserPage(
         data=user_outs,
@@ -148,7 +162,8 @@ async def create_user(
 
         user_loaded = await _load_user(db, org_id, existing_user.id)
         portal_roles = await _get_portal_roles(db, existing_user.id)
-        user_out = _user_to_out(user_loaded, portal_roles)
+        departments = await _get_user_departments(db, existing_user.id)
+        user_out = _user_to_out(user_loaded, portal_roles, departments)
         return OrgUserCreateResponse(**user_out.model_dump())
 
     user = OrgUser(
@@ -182,7 +197,8 @@ async def create_user(
 
     user_loaded = await _load_user(db, org_id, user.id)
     portal_roles = await _get_portal_roles(db, user.id)
-    user_out = _user_to_out(user_loaded, portal_roles)
+    departments = await _get_user_departments(db, user.id)
+    user_out = _user_to_out(user_loaded, portal_roles, departments)
 
     return OrgUserCreateResponse(**user_out.model_dump())
 
@@ -190,7 +206,8 @@ async def create_user(
 async def get_user(db: AsyncSession, org_id: uuid.UUID, user_id: uuid.UUID) -> UserOut:
     user = await _load_user(db, org_id, user_id)
     portal_roles = await _get_portal_roles(db, user_id)
-    return _user_to_out(user, portal_roles)
+    departments = await _get_user_departments(db, user_id)
+    return _user_to_out(user, portal_roles, departments)
 
 
 async def update_user(
@@ -206,7 +223,8 @@ async def update_user(
     await db.commit()
     user_reloaded = await _load_user(db, org_id, user_id)
     portal_roles = await _get_portal_roles(db, user_id)
-    return _user_to_out(user_reloaded, portal_roles)
+    departments = await _get_user_departments(db, user_id)
+    return _user_to_out(user_reloaded, portal_roles, departments)
 
 
 async def deactivate_user(db: AsyncSession, org_id: uuid.UUID, user_id: uuid.UUID) -> None:
@@ -218,7 +236,8 @@ async def deactivate_user(db: AsyncSession, org_id: uuid.UUID, user_id: uuid.UUI
 async def get_profile(db: AsyncSession, user: OrgUser) -> UserOut:
     loaded = await _load_user(db, user.org_id, user.id)
     portal_roles = await _get_portal_roles(db, user.id)
-    return _user_to_out(loaded, portal_roles)
+    departments = await _get_user_departments(db, user.id)
+    return _user_to_out(loaded, portal_roles, departments)
 
 
 async def update_profile(db: AsyncSession, user: OrgUser, data: OrgUserUpdate) -> UserOut:
