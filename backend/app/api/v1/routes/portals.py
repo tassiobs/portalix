@@ -1,11 +1,14 @@
+import json
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_active_user, get_db, require_permissions, require_portal_permissions, has_portal_permission
 from app.db.models.user import OrgUser
+from app.schemas.citizen import SignedUrlOut
+from app.services import storage as storage_service
 from app.schemas.portal import (
     AssignPortalUserRequest,
     PortalCreate,
@@ -375,6 +378,37 @@ async def update_portal_request(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await portal_service.update_portal_request(db, current_user.org_id, portal_id, request_id, data)
+
+
+@router.get(
+    "/{portal_id}/requests/{request_id}/fields/{field_id}/signed-url",
+    response_model=SignedUrlOut,
+    tags=["Portal Requests"],
+    summary="Get signed URL for a file field",
+    description="Generates a temporary signed URL (valid 1 hour) for a `file` field on a request. "
+                "Requires `portal.requests:read` or `portal.requests:read_all`.",
+    responses={**_401, **_403, **_404},
+)
+async def get_portal_field_signed_url(
+    portal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    field_id: uuid.UUID,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read", "portal.requests:read_all"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    read_all = await has_portal_permission(portal_id, current_user, db, "portal.requests:read_all")
+    req = await portal_service.get_portal_request(db, current_user.org_id, portal_id, request_id, current_user.id, read_all)
+    fv = next((v for v in req.field_values if v.field_id == field_id), None)
+    if not fv or not fv.value:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Field not found or has no value")
+    try:
+        data = json.loads(fv.value)
+        storage_path: str = data["storage_path"]
+        file_name: str = data.get("file_name", "")
+    except (json.JSONDecodeError, KeyError):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Field value is not a valid file reference")
+    signed_url = await storage_service.create_signed_url(storage_path)
+    return SignedUrlOut(url=signed_url, file_name=file_name)
 
 
 # --- Workflows ---

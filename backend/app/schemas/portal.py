@@ -45,12 +45,12 @@ class AssignPortalUserRequest(BaseModel):
     role_id: uuid.UUID = Field(..., description="ID of the portal-level role to assign")
 
 
-VALID_FIELD_TYPES = {"text", "textarea", "number", "date", "select"}
+VALID_FIELD_TYPES = {"text", "textarea", "number", "date", "select", "file"}
 
 
 class RequestTypeFieldCreate(BaseModel):
     label: str = Field(..., min_length=1, max_length=200, description="Display label for the field", example="Full Name")
-    field_type: Literal["text", "textarea", "number", "date", "select"] = Field(
+    field_type: Literal["text", "textarea", "number", "date", "select", "file"] = Field(
         ..., description="Input type for the field"
     )
     required: bool = Field(False, description="Whether this field must be filled in when submitting a request")
@@ -60,7 +60,7 @@ class RequestTypeFieldCreate(BaseModel):
 
 class RequestTypeFieldUpdate(BaseModel):
     label: str | None = Field(None, min_length=1, max_length=200, description="Display label for the field")
-    field_type: Literal["text", "textarea", "number", "date", "select"] | None = Field(
+    field_type: Literal["text", "textarea", "number", "date", "select", "file"] | None = Field(
         None, description="Input type for the field"
     )
     required: bool | None = Field(None, description="Whether this field must be filled in when submitting a request")

@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     FRONTEND_URL: str = "https://portalu-fe.vercel.app"
     EMAIL_FROM: str = "hello@vocabranch.com"
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
 
     class Config:
         env_file = ".env"

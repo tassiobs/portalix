@@ -72,6 +72,16 @@ class CitizenRequestCreate(BaseModel):
     field_values: list[CitizenFieldValueSubmit] = Field([], description="Values for the request type's custom fields")
 
 
+class UploadOut(BaseModel):
+    storage_path: str = Field(..., description="Opaque storage path — pass as field value when submitting the request")
+    file_name: str = Field(..., description="Original filename")
+
+
+class SignedUrlOut(BaseModel):
+    url: str = Field(..., description="Temporary signed URL valid for 1 hour")
+    file_name: str = Field(..., description="Original filename")
+
+
 class CitizenRequestOut(BaseModel):
     id: uuid.UUID
     portal_id: uuid.UUID

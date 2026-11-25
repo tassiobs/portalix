@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from fastapi import HTTPException, status
@@ -81,12 +82,30 @@ async def create_request(db: AsyncSession, citizen: Citizen, data: CitizenReques
 
     # Validate submitted field IDs belong to this request type
     valid_ids = {f.id for f in rt.fields}
+    field_map = {f.id: f for f in rt.fields}
     for fv in data.field_values:
         if fv.field_id not in valid_ids:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Unknown field: {fv.field_id}",
             )
+        # For file fields, validate the value is a JSON blob with a storage path
+        # scoped to this org/portal to prevent cross-tenant path injection.
+        if field_map[fv.field_id].field_type == "file" and fv.value:
+            try:
+                file_data = json.loads(fv.value)
+                storage_path: str = file_data["storage_path"]
+            except (json.JSONDecodeError, KeyError):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid file value for field: {field_map[fv.field_id].label}",
+                )
+            expected_prefix = f"{citizen.org_id}/{citizen.portal_id}/"
+            if not storage_path.startswith(expected_prefix):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid storage path for field: {field_map[fv.field_id].label}",
+                )
 
     req = Request(
         portal_id=citizen.portal_id,

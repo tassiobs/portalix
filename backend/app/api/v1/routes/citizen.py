@@ -1,7 +1,8 @@
+import json
 from typing import Annotated, Literal
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_citizen, get_db, get_redis
@@ -20,10 +21,13 @@ from app.schemas.citizen import (
     CitizenSignUpRequest,
     CitizenSignUpResponse,
     CitizenVerifyEmailRequest,
+    SignedUrlOut,
+    UploadOut,
 )
 from app.schemas.portal import PortalPublicOut, RequestTypeOut
 from app.services import citizen_auth as auth_service
 from app.services import citizen_requests as request_service
+from app.services import storage as storage_service
 
 router = APIRouter(prefix="/customer/{org_slug}/{portal_slug}")
 
@@ -304,3 +308,60 @@ async def get_request(
     citizen: Annotated[Citizen, Depends(get_current_citizen)],
 ):
     return await request_service.get_request(db, citizen, request_id)
+
+
+@router.post(
+    "/uploads",
+    response_model=UploadOut,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Citizen Requests"],
+    summary="Upload an attachment",
+    description="Uploads a file (PDF, JPEG, PNG — max 10 MB) and returns a `storage_path` "
+                "to be passed as the value of a `file` field when submitting a request.",
+    responses={**_401, **_404},
+)
+async def upload_attachment(
+    org_slug: str,
+    portal_slug: str,
+    file: UploadFile,
+    citizen: Annotated[Citizen, Depends(get_current_citizen)],
+):
+    content = await file.read()
+    storage_path = await storage_service.upload_file(
+        str(citizen.org_id),
+        str(citizen.portal_id),
+        content,
+        file.filename or "upload",
+        file.content_type or "application/octet-stream",
+    )
+    return UploadOut(storage_path=storage_path, file_name=file.filename or "upload")
+
+
+@router.get(
+    "/requests/{request_id}/fields/{field_id}/signed-url",
+    response_model=SignedUrlOut,
+    tags=["Citizen Requests"],
+    summary="Get signed URL for a file field",
+    description="Generates a temporary signed URL (valid 1 hour) for a `file` field on the citizen's own request.",
+    responses={**_401, **_404},
+)
+async def get_field_signed_url(
+    org_slug: str,
+    portal_slug: str,
+    request_id: str,
+    field_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    citizen: Annotated[Citizen, Depends(get_current_citizen)],
+):
+    req = await request_service.get_request(db, citizen, request_id)
+    fv = next((v for v in req.field_values if str(v.field_id) == field_id), None)
+    if not fv or not fv.value:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Field not found or has no value")
+    try:
+        data = json.loads(fv.value)
+        storage_path: str = data["storage_path"]
+        file_name: str = data.get("file_name", "")
+    except (json.JSONDecodeError, KeyError):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Field value is not a valid file reference")
+    signed_url = await storage_service.create_signed_url(storage_path)
+    return SignedUrlOut(url=signed_url, file_name=file_name)
