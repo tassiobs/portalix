@@ -1445,6 +1445,403 @@
         "x-required-permissions": []
       }
     },
+    "/api/v1/org/departments": {
+      "get": {
+        "tags": [
+          "Org Departments"
+        ],
+        "summary": "List departments",
+        "description": "Returns all departments in the organization with their member count.",
+        "operationId": "list_departments_api_v1_org_departments_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DepartmentOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Departments Api V1 Org Departments Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid authentication token"
+          }
+        },
+        "security": [
+          {
+            "StaffBearer": []
+          }
+        ],
+        "x-required-permissions": []
+      },
+      "post": {
+        "tags": [
+          "Org Departments"
+        ],
+        "summary": "Create a department",
+        "description": "Creates a new department in the organization. Requires `org.departments.manage`.",
+        "operationId": "create_department_api_v1_org_departments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartmentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid authentication token"
+          },
+          "403": {
+            "description": "Requires `org.departments.manage` permission"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "StaffBearer": []
+          }
+        ],
+        "x-required-permissions": [
+          "org.departments.manage"
+        ]
+      }
+    },
+    "/api/v1/org/departments/{department_id}": {
+      "get": {
+        "tags": [
+          "Org Departments"
+        ],
+        "summary": "Get a department",
+        "description": "Returns a department with its full member list.",
+        "operationId": "get_department_api_v1_org_departments__department_id__get",
+        "security": [
+          {
+            "StaffBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "department_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Department Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentDetailOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid authentication token"
+          },
+          "404": {
+            "description": "Department not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-permissions": []
+      },
+      "patch": {
+        "tags": [
+          "Org Departments"
+        ],
+        "summary": "Update a department",
+        "description": "Updates a department's name or description. Requires `org.departments.manage`.",
+        "operationId": "update_department_api_v1_org_departments__department_id__patch",
+        "security": [
+          {
+            "StaffBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "department_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Department Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartmentUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid authentication token"
+          },
+          "403": {
+            "description": "Requires `org.departments.manage` permission"
+          },
+          "404": {
+            "description": "Department not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-permissions": [
+          "org.departments.manage"
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Org Departments"
+        ],
+        "summary": "Delete a department",
+        "description": "Deletes a department and removes all its members. Requires `org.departments.manage`.",
+        "operationId": "delete_department_api_v1_org_departments__department_id__delete",
+        "security": [
+          {
+            "StaffBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "department_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Department Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or invalid authentication token"
+          },
+          "403": {
+            "description": "Requires `org.departments.manage` permission"
+          },
+          "404": {
+            "description": "Department not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-permissions": [
+          "org.departments.manage"
+        ]
+      }
+    },
+    "/api/v1/org/departments/{department_id}/members": {
+      "post": {
+        "tags": [
+          "Org Departments"
+        ],
+        "summary": "Add a member",
+        "description": "Adds an org user to the department. Requires `org.departments.manage`.",
+        "operationId": "add_member_api_v1_org_departments__department_id__members_post",
+        "security": [
+          {
+            "StaffBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "department_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Department Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddMemberRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or invalid authentication token"
+          },
+          "403": {
+            "description": "Requires `org.departments.manage` permission"
+          },
+          "404": {
+            "description": "Department not found"
+          },
+          "409": {
+            "description": "User is already a member of this department"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-permissions": [
+          "org.departments.manage"
+        ]
+      }
+    },
+    "/api/v1/org/departments/{department_id}/members/{user_id}": {
+      "delete": {
+        "tags": [
+          "Org Departments"
+        ],
+        "summary": "Remove a member",
+        "description": "Removes a user from the department. Requires `org.departments.manage`.",
+        "operationId": "remove_member_api_v1_org_departments__department_id__members__user_id__delete",
+        "security": [
+          {
+            "StaffBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "department_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Department Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or invalid authentication token"
+          },
+          "403": {
+            "description": "Requires `org.departments.manage` permission"
+          },
+          "404": {
+            "description": "Department not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-permissions": [
+          "org.departments.manage"
+        ]
+      }
+    },
     "/api/v1/org/invitations": {
       "get": {
         "tags": [
@@ -5080,6 +5477,21 @@
         ],
         "title": "AcceptInviteRequest"
       },
+      "AddMemberRequest": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id",
+            "description": "ID of the org user to add to the department"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "AddMemberRequest"
+      },
       "AssignPortalUserRequest": {
         "properties": {
           "user_id": {
@@ -5540,6 +5952,191 @@
           "token"
         ],
         "title": "CitizenVerifyEmailRequest"
+      },
+      "DepartmentCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Name",
+            "description": "Name of the department",
+            "example": "Legal"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Optional description of the department"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "DepartmentCreate"
+      },
+      "DepartmentDetailOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "org_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Org Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "member_count": {
+            "type": "integer",
+            "title": "Member Count",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/DepartmentMemberOut"
+            },
+            "type": "array",
+            "title": "Members",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "name",
+          "description",
+          "created_at"
+        ],
+        "title": "DepartmentDetailOut"
+      },
+      "DepartmentMemberOut": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserSummary"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "created_at"
+        ],
+        "title": "DepartmentMemberOut"
+      },
+      "DepartmentOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "org_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Org Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "member_count": {
+            "type": "integer",
+            "title": "Member Count",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "name",
+          "description",
+          "created_at"
+        ],
+        "title": "DepartmentOut"
+      },
+      "DepartmentUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Updated name of the department"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Updated description"
+          }
+        },
+        "type": "object",
+        "title": "DepartmentUpdate"
       },
       "ForgotPasswordRequest": {
         "properties": {
@@ -6136,6 +6733,14 @@
             },
             "type": "array",
             "title": "Portal Roles",
+            "default": []
+          },
+          "departments": {
+            "items": {
+              "$ref": "#/components/schemas/UserDepartmentOut"
+            },
+            "type": "array",
+            "title": "Departments",
             "default": []
           },
           "created_at": {
@@ -7887,6 +8492,43 @@
         ],
         "title": "UploadOut"
       },
+      "UserDepartmentOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "created_at"
+        ],
+        "title": "UserDepartmentOut"
+      },
       "UserOut": {
         "properties": {
           "id": {
@@ -7931,6 +8573,14 @@
             },
             "type": "array",
             "title": "Portal Roles",
+            "default": []
+          },
+          "departments": {
+            "items": {
+              "$ref": "#/components/schemas/UserDepartmentOut"
+            },
+            "type": "array",
+            "title": "Departments",
             "default": []
           },
           "created_at": {
