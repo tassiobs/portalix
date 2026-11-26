@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.slugify import slugify
 from app.db.models.citizen import Citizen
 from app.db.models.portal import Portal, PortalUserRole
-from app.db.models.portal_request import Request, RequestFieldValue, RequestType, RequestTypeField, TaskDefinition, TaskInstance
+from app.db.models.portal_request import Request, RequestComment, RequestFieldValue, RequestType, RequestTypeField, TaskDefinition, TaskInstance
 from app.db.models.rbac import OrgRole
 from app.db.models.user import OrgUser
 from app.schemas.portal import (
@@ -15,6 +15,9 @@ from app.schemas.portal import (
     PortalCreate,
     PortalOut,
     PortalUpdate,
+    RequestAssignmentUpdate,
+    RequestCommentIn,
+    RequestCommentOut,
     RequestFieldValueOut,
     RequestTypeCreate,
     RequestTypeFieldCreate,
@@ -194,6 +197,8 @@ def _request_to_out(req: Request) -> RequestOut:
         citizen_id=req.citizen_id,
         title=req.title,
         status=req.status,
+        assigned_to_user_id=req.assigned_to_user_id,
+        assigned_to_role_id=req.assigned_to_role_id,
         field_values=field_values,
         created_at=req.created_at,
     )
@@ -387,3 +392,42 @@ async def update_portal_request(db: AsyncSession, org_id: uuid.UUID, portal_id: 
     await db.commit()
     req = await _load_request(db, portal_id, request_id)
     return _request_to_out(req)
+
+
+async def update_request_assignment(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID, request_id: uuid.UUID, data: RequestAssignmentUpdate) -> RequestOut:
+    await _get_portal(db, org_id, portal_id)
+    req = await _load_request(db, portal_id, request_id)
+    req.assigned_to_user_id = data.assigned_to_user_id
+    req.assigned_to_role_id = data.assigned_to_role_id
+    await db.commit()
+    req = await _load_request(db, portal_id, request_id)
+    return _request_to_out(req)
+
+
+async def list_request_comments(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID, request_id: uuid.UUID) -> list[RequestCommentOut]:
+    from sqlalchemy.orm import selectinload
+    await _get_portal(db, org_id, portal_id)
+    result = await db.execute(
+        select(RequestComment)
+        .where(RequestComment.request_id == request_id)
+        .order_by(RequestComment.created_at.asc())
+    )
+    return [RequestCommentOut.model_validate(c) for c in result.scalars().all()]
+
+
+async def add_request_comment(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID, request_id: uuid.UUID, author: OrgUser, data: RequestCommentIn) -> RequestCommentOut:
+    await _get_portal(db, org_id, portal_id)
+    if not data.body and not data.file_url:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="At least one of body or file_url must be provided")
+    req = await _load_request(db, portal_id, request_id)
+    comment = RequestComment(
+        request_id=req.id,
+        author_user_id=author.id,
+        body=data.body,
+        file_url=data.file_url,
+        file_name=data.file_name,
+    )
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
+    return RequestCommentOut.model_validate(comment)

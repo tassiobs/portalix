@@ -51,6 +51,8 @@ class Request(Base):
     reference: Mapped[str] = mapped_column(String, nullable=False)
     title: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, default="open", nullable=False)
+    assigned_to_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("org_users.id"), nullable=True)
+    assigned_to_role_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("org_roles.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     portal: Mapped["Portal"] = relationship("Portal", back_populates="requests")
@@ -61,6 +63,9 @@ class Request(Base):
     )
     task_instances: Mapped[list["TaskInstance"]] = relationship(
         "TaskInstance", back_populates="request", cascade="all, delete-orphan"
+    )
+    comments: Mapped[list["RequestComment"]] = relationship(
+        "RequestComment", back_populates="request", cascade="all, delete-orphan"
     )
 
 
@@ -145,3 +150,18 @@ class TaskComment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     task_instance: Mapped["TaskInstance"] = relationship("TaskInstance", back_populates="comments")
+
+
+class RequestComment(Base):
+    __tablename__ = "request_comments"
+    __table_args__ = (Index("ix_request_comments_request_id", "request_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("requests.id"), nullable=False)
+    author_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("org_users.id"), nullable=True)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    file_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    file_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    request: Mapped["Request"] = relationship("Request", back_populates="comments")

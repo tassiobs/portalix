@@ -126,6 +126,8 @@ class RequestOut(BaseModel):
     citizen_id: uuid.UUID
     title: str
     status: str
+    assigned_to_user_id: uuid.UUID | None = None
+    assigned_to_role_id: uuid.UUID | None = None
     field_values: list[RequestFieldValueOut] = []
     created_at: datetime
 
@@ -230,3 +232,26 @@ class TaskCompleteIn(BaseModel):
         ..., description="Outcome of the task completion"
     )
     notes: str | None = Field(None, max_length=5000, description="Optional notes about the completion decision", example="All documents verified and approved.")
+
+
+class RequestAssignmentUpdate(BaseModel):
+    assigned_to_user_id: uuid.UUID | None = Field(None, description="ID of the org user to assign this request to. Pass null to clear.")
+    assigned_to_role_id: uuid.UUID | None = Field(None, description="ID of the org role to assign this request to. Pass null to clear.")
+
+
+class RequestCommentIn(BaseModel):
+    body: str | None = Field(None, max_length=5000, description="Text content of the comment")
+    file_url: str | None = Field(None, description="URL of an attached file")
+    file_name: str | None = Field(None, max_length=255, description="Original filename of the attachment")
+
+
+class RequestCommentOut(BaseModel):
+    id: uuid.UUID
+    request_id: uuid.UUID
+    author_user_id: uuid.UUID | None
+    body: str | None
+    file_url: str | None
+    file_name: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

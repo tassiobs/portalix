@@ -14,6 +14,9 @@ from app.schemas.portal import (
     PortalCreate,
     PortalOut,
     PortalUpdate,
+    RequestAssignmentUpdate,
+    RequestCommentIn,
+    RequestCommentOut,
     RequestTypeCreate,
     RequestTypeFieldCreate,
     RequestTypeFieldOut,
@@ -378,6 +381,63 @@ async def update_portal_request(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await portal_service.update_portal_request(db, current_user.org_id, portal_id, request_id, data)
+
+
+@router.patch(
+    "/{portal_id}/requests/{request_id}/assignment",
+    response_model=RequestOut,
+    tags=["Portal Requests"],
+    summary="Assign a request",
+    description="Sets or clears the user or role assignment on a request. Pass `null` to either field to clear it. "
+                "Requires `portal.requests:update`.",
+    responses={**_401, **_403, **_404},
+)
+async def update_request_assignment(
+    portal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    data: RequestAssignmentUpdate,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:update"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await portal_service.update_request_assignment(db, current_user.org_id, portal_id, request_id, data)
+
+
+@router.get(
+    "/{portal_id}/requests/{request_id}/comments",
+    response_model=list[RequestCommentOut],
+    tags=["Portal Requests"],
+    summary="List request comments",
+    description="Returns all staff comments on a request, ordered by creation time. "
+                "Requires `portal.requests:read`.",
+    responses={**_401, **_403, **_404},
+)
+async def list_request_comments(
+    portal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:read", "portal.requests:read_all"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await portal_service.list_request_comments(db, current_user.org_id, portal_id, request_id)
+
+
+@router.post(
+    "/{portal_id}/requests/{request_id}/comments",
+    response_model=RequestCommentOut,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Portal Requests"],
+    summary="Add a comment to a request",
+    description="Adds a staff comment (with optional file attachment) to a request. "
+                "At least one of `body` or `file_url` must be provided. Requires `portal.requests:update`.",
+    responses={**_401, **_403, **_404},
+)
+async def add_request_comment(
+    portal_id: uuid.UUID,
+    request_id: uuid.UUID,
+    data: RequestCommentIn,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:update"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    return await portal_service.add_request_comment(db, current_user.org_id, portal_id, request_id, current_user, data)
 
 
 @router.get(
