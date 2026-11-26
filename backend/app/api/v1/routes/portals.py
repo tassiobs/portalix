@@ -2,12 +2,12 @@ import json
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_active_user, get_db, require_permissions, require_portal_permissions, has_portal_permission
 from app.db.models.user import OrgUser
-from app.schemas.citizen import SignedUrlOut
+from app.schemas.citizen import SignedUrlOut, UploadOut
 from app.services import storage as storage_service
 from app.schemas.portal import (
     AssignPortalUserRequest,
@@ -381,6 +381,35 @@ async def update_portal_request(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await portal_service.update_portal_request(db, current_user.org_id, portal_id, request_id, data)
+
+
+@router.post(
+    "/{portal_id}/files",
+    response_model=UploadOut,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Portal Requests"],
+    summary="Upload a staff file",
+    description="Uploads a file (PDF, JPEG, PNG, WebP — max 10 MB) scoped to this portal. "
+                "Returns a `storage_path` and `file_name` to store on a request comment. "
+                "Requires `portal.requests:update`.",
+    responses={**_401, **_403, **_404},
+)
+async def upload_staff_file(
+    portal_id: uuid.UUID,
+    file: UploadFile,
+    current_user: Annotated[OrgUser, Depends(require_portal_permissions("portal.requests:update"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    portal = await portal_service.get_portal(db, current_user.org_id, portal_id)
+    content = await file.read()
+    storage_path = await storage_service.upload_file(
+        str(portal.org_id),
+        str(portal.id),
+        content,
+        file.filename or "upload",
+        file.content_type or "application/octet-stream",
+    )
+    return UploadOut(storage_path=storage_path, file_name=file.filename or "upload")
 
 
 @router.patch(

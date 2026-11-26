@@ -45,6 +45,10 @@ async def _get_portal(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID)
 
 # --- Portals ---
 
+async def get_portal(db: AsyncSession, org_id: uuid.UUID, portal_id: uuid.UUID) -> Portal:
+    return await _get_portal(db, org_id, portal_id)
+
+
 async def list_portals(db: AsyncSession, org_id: uuid.UUID) -> list[PortalOut]:
     result = await db.execute(select(Portal).where(Portal.org_id == org_id).order_by(Portal.created_at))
     return [PortalOut.model_validate(p) for p in result.scalars().all()]
