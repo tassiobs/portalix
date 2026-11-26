@@ -186,6 +186,8 @@ def _request_to_out(req: Request) -> RequestOut:
     ]
     return RequestOut(
         id=req.id,
+        number=req.number,
+        reference=req.reference,
         portal_id=req.portal_id,
         request_type_id=req.request_type_id,
         request_type_name=req.request_type.name if req.request_type else None,
