@@ -118,6 +118,8 @@ class RequestFieldValueSubmit(BaseModel):
 
 class RequestOut(BaseModel):
     id: uuid.UUID
+    number: int
+    reference: str
     portal_id: uuid.UUID
     request_type_id: uuid.UUID
     request_type_name: str | None = None

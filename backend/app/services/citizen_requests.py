@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.models.citizen import Citizen
+from app.db.models.portal import Portal
 from app.db.models.portal_request import Request, RequestFieldValue, RequestType, RequestTypeField, Workflow
 from app.schemas.citizen import CitizenRequestCreate, CitizenRequestOut
 from app.schemas.portal import RequestFieldValueOut, RequestTypeOut
@@ -25,6 +26,8 @@ def _request_to_out(req: Request) -> CitizenRequestOut:
     ]
     return CitizenRequestOut(
         id=req.id,
+        number=req.number,
+        reference=req.reference,
         portal_id=req.portal_id,
         request_type_id=req.request_type_id,
         request_type_name=req.request_type.name if req.request_type else None,
@@ -107,10 +110,19 @@ async def create_request(db: AsyncSession, citizen: Citizen, data: CitizenReques
                     detail=f"Invalid storage path for field: {field_map[fv.field_id].label}",
                 )
 
+    # Lock the portal row to safely increment the request counter
+    portal = (await db.execute(
+        select(Portal).where(Portal.id == citizen.portal_id).with_for_update()
+    )).scalar_one()
+    request_number = portal.next_request_number
+    portal.next_request_number = request_number + 1
+
     req = Request(
         portal_id=citizen.portal_id,
         request_type_id=data.request_type_id,
         citizen_id=citizen.id,
+        number=request_number,
+        reference=str(request_number),
         title=data.title,
     )
     db.add(req)
